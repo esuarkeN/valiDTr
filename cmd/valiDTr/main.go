@@ -1,6 +1,7 @@
-package cmd
-
+package cmd 
 import (
+	"valiDTr/cmd"
+	"valiDTr/db"
 	"fmt"
 	"os"
 
@@ -12,7 +13,8 @@ var rootCmd = &cobra.Command{
 	Short: "valiDTr is a CLI tool for verifying Git commit chains using GPG signatures",
 }
 
-func Execute() {
+func main() {
+	db.InitDB()
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
