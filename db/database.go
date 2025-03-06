@@ -20,7 +20,8 @@ func InitDB() {
 	CREATE TABLE IF NOT EXISTS keys (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		key_id TEXT UNIQUE,
-		status TEXT
+		status TEXT,
+		timestamp TIMESTAMP
 	);
 	`
 	_, err = db.Exec(createTableSQL)
