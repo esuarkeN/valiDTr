@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"time"
 	"valiDTr/db"
 	"valiDTr/git"
 
@@ -15,8 +16,7 @@ var verifyCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		commitHash := args[0]
 
-		err := git.VerifyCommitSignature(commitHash)
-		if err != nil {
+		if err := git.VerifyCommitSignature(commitHash); err != nil {
 			fmt.Println("Signature invalid:", err)
 			return
 		}
@@ -27,17 +27,23 @@ var verifyCmd = &cobra.Command{
 			return
 		}
 
-		isValid, err := db.IsKeyActive(keyID)
+		commitTime, err := git.GetCommitTimestamp(commitHash)
+		if err != nil {
+			fmt.Println("Error getting commit timestamp:", err)
+			return
+		}
+
+		trusted, err := db.IsKeyActiveAt(keyID, commitTime)
 		if err != nil {
 			fmt.Println("Database error:", err)
 			return
 		}
-		if !isValid {
-			fmt.Println("Key is not trusted or has been revoked.")
+		if !trusted {
+			fmt.Printf("Key %s was not trusted at commit time (%s).\n", keyID, commitTime.Format(time.RFC3339))
 			return
 		}
 
-		fmt.Println("Commit is verified and key is trusted.")
+		fmt.Println("Commit is verified and key was trusted at commit time.")
 	},
 }
 
