@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"os/exec"
 	"regexp"
+	"strconv"
 	"strings"
+	"time"
 )
 
 func VerifyCommitSignature(commitHash string) error {
@@ -36,4 +38,21 @@ func GetCommitKeyID(commitHash string) (string, error) {
 		return "", errors.New("could not extract key ID from signature")
 	}
 	return strings.TrimSpace(match[1]), nil
+}
+func GetCommitTimestamp(commitHash string) (time.Time, error) {
+	cmd := exec.Command("git", "show", "-s", "--format=%ct", commitHash)
+	var out bytes.Buffer
+	cmd.Stdout = &out
+
+	if err := cmd.Run(); err != nil {
+		return time.Time{}, err
+	}
+
+	s := strings.TrimSpace(out.String())
+	secs, err := strconv.ParseInt(s, 10, 64)
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	return time.Unix(secs, 0).UTC(), nil
 }
