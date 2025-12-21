@@ -2,29 +2,35 @@ package cmd
 
 import (
 	"fmt"
+
 	"valiDTr/db"
 
 	"github.com/spf13/cobra"
 )
 
+var listKeysEmail string
+
 var listKeysCmd = &cobra.Command{
 	Use:   "list-keys",
-	Short: "List all stored GPG keys in the database",
-	Run: func(cmd *cobra.Command, args []string) {
-		keys, err := db.ListGPGKeys()
+	Short: "List developer key mappings",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		keys, err := db.ListKeys(listKeysEmail)
 		if err != nil {
-			fmt.Println("Error retrieving keys:", err)
-			return
+			return err
 		}
-
-		fmt.Println("Stored GPG Keys:")
-		fmt.Println("----------------------------")
-		for _, key := range keys {
-			fmt.Printf("Key ID: %s | Status: %s\n", key.KeyID, key.Status)
+		for _, k := range keys {
+			status := "active"
+			if k.RevokedAt.Valid {
+				status = "revoked@" + k.RevokedAt.Time.UTC().Format("2006-01-02T15:04:05Z")
+			}
+			fmt.Printf("%s\t%s\t%s\tadded@%s\n",
+				k.DeveloperEmail, k.KeyID, status, k.AddedAt.UTC().Format("2006-01-02T15:04:05Z"))
 		}
+		return nil
 	},
 }
 
 func init() {
+	listKeysCmd.Flags().StringVar(&listKeysEmail, "email", "", "Filter by developer email")
 	rootCmd.AddCommand(listKeysCmd)
 }

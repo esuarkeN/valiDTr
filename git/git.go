@@ -2,57 +2,89 @@ package git
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"os/exec"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
 )
 
-func VerifyCommitSignature(commitHash string) error {
-	cmd := exec.Command("git", "log", "--show-signature", "-1", commitHash)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return err
-	}
-
-	fmt.Println(string(output))
-	return nil
-}
-func GetCommitKeyID(commitHash string) (string, error) {
-	cmd := exec.Command("git", "log", "--show-signature", "-1", commitHash)
+func runGit(args ...string) (string, error) {
+	cmd := exec.Command("git", args...)
 	var out bytes.Buffer
+	var errb bytes.Buffer
 	cmd.Stdout = &out
-	err := cmd.Run()
+	cmd.Stderr = &errb
+
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("git %v failed: %w: %s", args, err, strings.TrimSpace(errb.String()))
+	}
+	return strings.TrimSpace(out.String()), nil
+}
+func SignatureStatus(commit string) (string, error) {
+	return runGit("show", "-s", "--format=%G?", commit)
+}
+
+func CommitKeyID(commit string) (string, error) {
+	key, err := runGit("show", "-s", "--format=%GK", commit)
 	if err != nil {
 		return "", err
 	}
-
-	output := out.String()
-	// Look for "using RSA key <KEYID>"
-	re := regexp.MustCompile(`using \w+ key ([A-F0-9]+)`)
-	match := re.FindStringSubmatch(output)
-	if len(match) < 2 {
-		return "", errors.New("could not extract key ID from signature")
+	if key == "" {
+		return "", fmt.Errorf("no signing key found (unsigned commit)")
 	}
-	return strings.TrimSpace(match[1]), nil
+	return key, nil
 }
-func GetCommitTimestamp(commitHash string) (time.Time, error) {
-	cmd := exec.Command("git", "show", "-s", "--format=%ct", commitHash)
-	var out bytes.Buffer
-	cmd.Stdout = &out
 
-	if err := cmd.Run(); err != nil {
-		return time.Time{}, err
-	}
-
-	s := strings.TrimSpace(out.String())
-	secs, err := strconv.ParseInt(s, 10, 64)
+func CommitTimestamp(commit string) (time.Time, error) {
+	s, err := runGit("show", "-s", "--format=%ct", commit)
 	if err != nil {
 		return time.Time{}, err
 	}
-
+	secs, err := strconv.ParseInt(strings.TrimSpace(s), 10, 64)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("invalid commit timestamp %q: %w", s, err)
+	}
 	return time.Unix(secs, 0).UTC(), nil
+}
+
+func CommitEmail(commit, mode string) (string, error) {
+	format := "%ce"
+	if mode == "author" {
+		format = "%ae"
+	}
+	email, err := runGit("show", "-s", "--format="+format, commit)
+	if err != nil {
+		return "", err
+	}
+	if email == "" {
+		return "", fmt.Errorf("could not read %s email", mode)
+	}
+	return email, nil
+}
+
+func VerifyCommitSignature(commit string) error {
+	st, err := SignatureStatus(commit)
+	if err != nil {
+		return err
+	}
+	if st != "G" {
+		return fmt.Errorf("signature not valid: %%G?=%s", st)
+	}
+	return nil
+}
+
+func CommitsInRange(from, to string) ([]string, error) {
+	out, err := runGit("rev-list", "--reverse", from+".."+to)
+	if err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(out) == "" {
+		return []string{}, nil
+	}
+	return strings.Split(out, "\n"), nil
+}
+
+func RootCommit(of string) (string, error) {
+	return runGit("rev-list", "--max-parents=0", of)
 }

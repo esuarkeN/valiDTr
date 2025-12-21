@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"time"
+
 	"valiDTr/db"
 	"valiDTr/git"
 
@@ -11,39 +12,55 @@ import (
 
 var verifyCmd = &cobra.Command{
 	Use:   "verify [commit-hash]",
-	Short: "Verify the GPG signature of a Git commit",
+	Short: "Verify one commit against signature + developer/key policy",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
-		commitHash := args[0]
+	RunE: func(cmd *cobra.Command, args []string) error {
+		commit := args[0]
 
-		if err := git.VerifyCommitSignature(commitHash); err != nil {
-			fmt.Println("Signature invalid:", err)
-			return
+		if err := git.VerifyCommitSignature(commit); err != nil {
+			return fmt.Errorf("%s: %w", commit, err)
 		}
 
-		keyID, err := git.GetCommitKeyID(commitHash)
+		keyID, err := git.CommitKeyID(commit)
 		if err != nil {
-			fmt.Println("Error extracting key ID:", err)
-			return
+			return fmt.Errorf("%s: %w", commit, err)
 		}
 
-		commitTime, err := git.GetCommitTimestamp(commitHash)
+		email, err := git.CommitEmail(commit, EmailMode())
 		if err != nil {
-			fmt.Println("Error getting commit timestamp:", err)
-			return
+			return fmt.Errorf("%s: %w", commit, err)
 		}
 
-		trusted, err := db.IsKeyActiveAt(keyID, commitTime)
+		var t time.Time
+		switch Policy() {
+		case "current":
+			t = time.Now().UTC()
+		case "historical":
+			t, err = git.CommitTimestamp(commit)
+			if err != nil {
+				return fmt.Errorf("%s: %w", commit, err)
+			}
+		default:
+			return fmt.Errorf("unknown policy: %s (use current|historical)", Policy())
+		}
+
+		activeDev, err := db.IsDeveloperActiveAt(email, t)
 		if err != nil {
-			fmt.Println("Database error:", err)
-			return
+			return err
 		}
-		if !trusted {
-			fmt.Printf("Key %s was not trusted at commit time (%s).\n", keyID, commitTime.Format(time.RFC3339))
-			return
+		if !activeDev {
+			return fmt.Errorf("%s: developer not allowed (%s) under policy=%s", commit, email, Policy())
 		}
 
-		fmt.Println("Commit is verified and key was trusted at commit time.")
+		activeKey, err := db.IsKeyActiveForDeveloperAt(email, keyID, t)
+		if err != nil {
+			return err
+		}
+		if !activeKey {
+			return fmt.Errorf("%s: key not allowed for %s (key=%s) under policy=%s", commit, email, keyID, Policy())
+		}
+
+		return nil
 	},
 }
 
