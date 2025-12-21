@@ -1,24 +1,21 @@
 package cmd
 
 import (
-	"fmt"
+	"time"
+
 	"valiDTr/db"
 
 	"github.com/spf13/cobra"
 )
 
 var addKeyCmd = &cobra.Command{
-	Use:   "add-key [key-id]",
-	Short: "Add a GPG key to the verification database",
-	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
-		keyID := args[0]
-		err := db.AddGPGKey(keyID)
-		if err != nil {
-			fmt.Println("Error adding key:", err)
-		} else {
-			fmt.Println("Key added successfully!")
-		}
+	Use:   "add-key [developer-email] [key-id]",
+	Short: "Assign a GPG key to a developer (active starting now)",
+	Args:  cobra.ExactArgs(2),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		email := args[0]
+		keyID := args[1]
+		return db.AddKeyToDeveloper(email, keyID, time.Now().UTC())
 	},
 }
 

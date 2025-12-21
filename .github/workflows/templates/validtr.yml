@@ -1,0 +1,20 @@
+name: valiDTr
+
+on:
+    pull_request:
+    push:
+        branches: ["main"]
+
+jobs:
+    validtr:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+
+            - uses: <YOUR_ORG>/valiDTr/.github/actions/validtr@v1
+              with:
+                  config: .validtr/config.yml
+                  pubkeys: .validtr/pubkeys/*.asc
+                  policy: current

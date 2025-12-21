@@ -1,44 +1,37 @@
 package db
 
-import (
-	"database/sql"
-	"fmt"
-
-	_ "github.com/mattn/go-sqlite3"
-)
-
-// GPGKey represents a stored key in the database
-type GPGKey struct {
-	KeyID  string
-	Status string
-}
-
-// ListGPGKeys fetches all stored GPG keys from the database
-func ListGPGKeys() ([]GPGKey, error) {
-	db, err := sql.Open("sqlite3", "gpgkeys.db")
+func ListDevKeys(emailFilter string) ([]DevKey, error) {
+	db, err := openDB()
 	if err != nil {
 		return nil, err
 	}
 	defer db.Close()
 
-	rows, err := db.Query("SELECT key_id, status FROM keys")
+	q := `
+SELECT d.email, k.key_id, k.added_at, k.revoked_at
+FROM developer_keys k
+JOIN developers d ON d.id = k.developer_id
+`
+	var args []any
+	if emailFilter != "" {
+		q += ` WHERE d.email = ?`
+		args = append(args, emailFilter)
+	}
+	q += ` ORDER BY d.email, k.key_id, k.added_at`
+
+	rows, err := db.Query(q, args...)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var keys []GPGKey
+	var out []DevKey
 	for rows.Next() {
-		var key GPGKey
-		if err := rows.Scan(&key.KeyID, &key.Status); err != nil {
+		var dk DevKey
+		if err := rows.Scan(&dk.DeveloperEmail, &dk.KeyID, &dk.AddedAt, &dk.RevokedAt); err != nil {
 			return nil, err
 		}
-		keys = append(keys, key)
+		out = append(out, dk)
 	}
-
-	if len(keys) == 0 {
-		fmt.Println("No GPG keys found in the database.")
-	}
-
-	return keys, nil
+	return out, nil
 }
