@@ -1,127 +1,129 @@
 name: valiDTr Self-Test
 
 on:
-    workflow_dispatch:
+  workflow_dispatch:
+  main:
+    types: [push]
 
 jobs:
-    selftest:
-        runs-on: ubuntu-latest
-        steps:
-            - uses: actions/setup-go@v5
-              with:
-                  go-version: "1.23"
+  selftest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
 
-            - name: Install valiDTr
-              run: go install github.com/esuarken/valiDTr@latest
+      - name: Install valiDTr
+        run: go install github.com/esuarken/valiDTr@latest
 
-            - name: Run demo (PASS -> FAIL, plus historical PASS)
-              shell: bash
-              run: |
-                  set -euo pipefail
+      - name: Run demo (PASS -> FAIL, plus historical PASS)
+        shell: bash
+        run: |
+          set -euo pipefail
 
-                  WORK="$RUNNER_TEMP/demo"
-                  mkdir -p "$WORK"
-                  cd "$WORK"
-                  git init
+          WORK="$RUNNER_TEMP/demo"
+          mkdir -p "$WORK"
+          cd "$WORK"
+          git init
 
-                  # --- create throwaway GPG key ---
-                  export GNUPGHOME="$RUNNER_TEMP/gnupg"
-                  mkdir -p "$GNUPGHOME"
-                  chmod 700 "$GNUPGHOME"
+          # --- create throwaway GPG key ---
+          export GNUPGHOME="$RUNNER_TEMP/gnupg"
+          mkdir -p "$GNUPGHOME"
+          chmod 700 "$GNUPGHOME"
 
-                  cat >keyparams <<'EOF'
-                  Key-Type: default
-                  Key-Length: 3072
-                  Subkey-Type: default
-                  Name-Real: Demo Dev
-                  Name-Email: demo@example.com
-                  Expire-Date: 0
-                  %no-protection
-                  %commit
-                  EOF
+          cat >keyparams <<'EOF'
+          Key-Type: default
+          Key-Length: 3072
+          Subkey-Type: default
+          Name-Real: Demo Dev
+          Name-Email: demo@example.com
+          Expire-Date: 0
+          %no-protection
+          %commit
+          EOF
 
-                  gpg --batch --generate-key keyparams
+          gpg --batch --generate-key keyparams
 
-                  # Get fingerprint and export pubkey
-                  FPR="$(gpg --list-secret-keys --with-colons demo@example.com | awk -F: '$1=="fpr"{print $10; exit}')"
-                  mkdir -p .validtr/pubkeys
-                  gpg --armor --export "$FPR" > .validtr/pubkeys/demo.asc
+          # Get fingerprint and export pubkey
+          FPR="$(gpg --list-secret-keys --with-colons demo@example.com | awk -F: '$1=="fpr"{print $10; exit}')"
+          mkdir -p .validtr/pubkeys
+          gpg --armor --export "$FPR" > .validtr/pubkeys/demo.asc
 
-                  # --- configure git signing ---
-                  git config user.name "Demo Dev"
-                  git config user.email "demo@example.com"
-                  git config commit.gpgsign true
-                  git config user.signingkey "$FPR"
+          # --- configure git signing ---
+          git config user.name "Demo Dev"
+          git config user.email "demo@example.com"
+          git config commit.gpgsign true
+          git config user.signingkey "$FPR"
 
-                  echo "hello" > file.txt
-                  git add file.txt
-                  git commit -m "signed commit 1"
+          echo "hello" > file.txt
+          git add file.txt
+          git commit -m "signed commit 1"
 
-                  COMMIT1="$(git rev-parse HEAD)"
-                  KEYID="$(git show -s --format=%GK HEAD)"
+          COMMIT1="$(git rev-parse HEAD)"
+          KEYID="$(git show -s --format=%GK HEAD)"
 
-                  # Allowlist includes the dev+key
-                  mkdir -p .validtr
-                  cat > .validtr/config.yml <<EOF
-                  developers:
-                    - email: demo@example.com
-                      name: Demo Dev
-                      keys:
-                        - id: ${KEYID}
-                  EOF
+          # Allowlist includes the dev+key
+          mkdir -p .validtr
+          cat > .validtr/config.yml <<EOF
+          developers:
+            - email: demo@example.com
+              name: Demo Dev
+              keys:
+                - id: ${KEYID}
+          EOF
 
-                  # Import the pubkey so git signature verification can succeed
-                  gpg --batch --import .validtr/pubkeys/demo.asc >/dev/null
+          # Import the pubkey so git signature verification can succeed
+          gpg --batch --import .validtr/pubkeys/demo.asc >/dev/null
 
-                  export VALIDTR_DB="$RUNNER_TEMP/validtr.db"
-                  valiDTr sync --config .validtr/config.yml --reset
+          export VALIDTR_DB="$RUNNER_TEMP/validtr.db"
+          valiDTr sync --config .validtr/config.yml --reset
 
-                  ROOT="$(git rev-list --max-parents=0 HEAD)"
-                  echo "✅ Expect PASS (dev allowed, policy=current)"
-                  valiDTr --policy=current verify-range "$ROOT" "$COMMIT1"
+          ROOT="$(git rev-list --max-parents=0 HEAD)"
+          echo "✅ Expect PASS (dev allowed, policy=current)"
+          valiDTr --policy=current verify-range "$ROOT" "$COMMIT1"
 
-                  # Now remove dev from config and make a new commit (still signed)
-                  cat > .validtr/config.yml <<'EOF'
-                  developers: []
-                  EOF
-                  valiDTr sync --config .validtr/config.yml --reset
+          # Now remove dev from config and make a new commit (still signed)
+          cat > .validtr/config.yml <<'EOF'
+          developers: []
+          EOF
+          valiDTr sync --config .validtr/config.yml --reset
 
-                  echo "world" >> file.txt
-                  git add file.txt
-                  git commit -m "signed commit 2 after removal"
-                  COMMIT2="$(git rev-parse HEAD)"
+          echo "world" >> file.txt
+          git add file.txt
+          git commit -m "signed commit 2 after removal"
+          COMMIT2="$(git rev-parse HEAD)"
 
-                  echo "❌ Expect FAIL (dev removed, policy=current)"
-                  set +e
-                  valiDTr --policy=current verify-range "$COMMIT1" "$COMMIT2"
-                  RC=$?
-                  set -e
+          echo "❌ Expect FAIL (dev removed, policy=current)"
+          set +e
+          valiDTr --policy=current verify-range "$COMMIT1" "$COMMIT2"
+          RC=$?
+          set -e
 
-                  if [ "$RC" -eq 0 ]; then
-                    echo "ERROR: expected failure but got success"
-                    exit 1
-                  fi
+          if [ "$RC" -eq 0 ]; then
+            echo "ERROR: expected failure but got success"
+            exit 1
+          fi
 
-                  echo "✅ Expect PASS (old commit still valid under policy=historical if allowlist had epoch added_at)"
-                  # Note: with YAML sync using epoch added_at, historical checks allow past commits.
-                  # But developer is now removed from DB, so historical policy checks 'at commit time' won't pass
-                  # unless you preserve historical membership windows rather than 'reset to empty'.
-                  #
-                  # For demo: we re-sync original allowlist, then show historical verify works.
-                  cat > .validtr/config.yml <<EOF
-                  developers:
-                    - email: demo@example.com
-                      name: Demo Dev
-                      keys:
-                        - id: ${KEYID}
-                  EOF
-                  valiDTr sync --config .validtr/config.yml --reset
-                  valiDTr --policy=historical verify "$COMMIT1"
+          echo "✅ Expect PASS (old commit still valid under policy=historical if allowlist had epoch added_at)"
+          # Note: with YAML sync using epoch added_at, historical checks allow past commits.
+          # But developer is now removed from DB, so historical policy checks 'at commit time' won't pass
+          # unless you preserve historical membership windows rather than 'reset to empty'.
+          #
+          # For demo: we re-sync original allowlist, then show historical verify works.
+          cat > .validtr/config.yml <<EOF
+          developers:
+            - email: demo@example.com
+              name: Demo Dev
+              keys:
+                - id: ${KEYID}
+          EOF
+          valiDTr sync --config .validtr/config.yml --reset
+          valiDTr --policy=historical verify "$COMMIT1"
 
-                  {
-                    echo "### valiDTr Self-Test"
-                    echo "- Commit1: $COMMIT1"
-                    echo "- Commit2: $COMMIT2"
-                    echo "- KeyID:   $KEYID"
-                    echo "- Result: PASS (initial), FAIL (after removal), PASS (historical for old commit after re-sync)"
-                  } >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "### valiDTr Self-Test"
+            echo "- Commit1: $COMMIT1"
+            echo "- Commit2: $COMMIT2"
+            echo "- KeyID:   $KEYID"
+            echo "- Result: PASS (initial), FAIL (after removal), PASS (historical for old commit after re-sync)"
+          } >> "$GITHUB_STEP_SUMMARY"
