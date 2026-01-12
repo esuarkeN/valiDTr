@@ -1,20 +1,37 @@
 name: valiDTr
 
 on:
-    pull_request:
-    push:
-        branches: ["main"]
+  workflow_run:
+    workflows: ["Build valiDTr"]
+    types: [completed]
+
+permissions:
+  contents: read
+  actions: read
 
 jobs:
-    validtr:
-        runs-on: ubuntu-latest
-        steps:
-            - uses: actions/checkout@v4
-              with:
-                  fetch-depth: 0
+  validtr:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-            - uses: esuarken/valiDTr/.github/actions/validtr@v1
-              with:
-                  config: .validtr/config.yml
-                  pubkeys: .validtr/pubkeys/*.asc
-                  policy: current
+      - name: Download valiDTr artifact (from Build run)
+        uses: actions/download-artifact@v4
+        with:
+          name: valiDTr-linux
+          run-id: ${{ github.event.workflow_run.id }}
+          path: ./bin
+
+      - name: Put valiDTr on PATH
+        run: |
+          chmod +x ./bin/valiDTr
+          echo "$PWD/bin" >> "$GITHUB_PATH"
+
+      - uses: esuarken/valiDTr/.github/actions/validtr@v1
+        with:
+          config: .validtr/config.yml
+          pubkeys: .validtr/pubkeys/*.asc
+          policy: current
