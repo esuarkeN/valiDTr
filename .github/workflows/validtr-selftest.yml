@@ -45,8 +45,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          chmod +x ./bin/valiDTr
-          echo "$PWD/bin" >> "$GITHUB_PATH"
+          BIN="$(find ./bin -type f -name 'valiDTr' | head -n 1)"
+          echo "Found binary at: $BIN"
+          chmod +x "$BIN"
+          echo "$(dirname "$BIN")" >> "$GITHUB_PATH"
 
       - name: Run demo (PASS -> FAIL, plus historical PASS)
         shell: bash
