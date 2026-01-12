@@ -2,55 +2,32 @@ name: valiDTr Self-Test
 
 on:
   pull_request:
-    branches: ["main"]
   push:
-    branches: ["main"]
+    branches: [ "main" ]
+  workflow_dispatch:
 
 permissions:
   contents: read
-  actions: read
 
 jobs:
   selftest:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
 
-      # If triggered by Build workflow, download the compiled binary artifact
-      - name: Download valiDTr artifact (from Build run)
-        if: ${{ github.event_name == 'workflow_run' }}
-        uses: actions/download-artifact@v4
-        with:
-          name: valiDTr-linux
-          run-id: ${{ github.event.workflow_run.id }}
-          path: ./bin
-
-      # Manual run fallback: build from source
       - uses: actions/setup-go@v5
-        if: ${{ github.event_name == 'workflow_dispatch' }}
         with:
-          go-version: "1.23"
+          go-version: "1.22"
 
-      - name: Build valiDTr (manual fallback)
-        if: ${{ github.event_name == 'workflow_dispatch' }}
+      - name: Build valiDTr from this repo
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p ./bin
-          go build -o ./bin/valiDTr .
-          chmod +x ./bin/valiDTr
+          go test ./...
+          go build -o "$RUNNER_TEMP/valiDTr" .
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
 
-      - name: Put valiDTr on PATH
-        shell: bash
-        run: |
-          set -euo pipefail
-          BIN="$(find ./bin -type f -name 'valiDTr' | head -n 1)"
-          echo "Found binary at: $BIN"
-          chmod +x "$BIN"
-          echo "$(dirname "$BIN")" >> "$GITHUB_PATH"
-
-      - name: Run demo (PASS -> FAIL, plus historical PASS)
+      - name: Demo PASS -> FAIL (current), old commit still PASS (historical)
         shell: bash
         run: |
           set -euo pipefail
@@ -60,7 +37,7 @@ jobs:
           cd "$WORK"
           git init
 
-          # --- create throwaway GPG key ---
+          # GPG setup
           export GNUPGHOME="$RUNNER_TEMP/gnupg"
           mkdir -p "$GNUPGHOME"
           chmod 700 "$GNUPGHOME"
@@ -72,18 +49,18 @@ jobs:
           Name-Real: Demo Dev
           Name-Email: demo@example.com
           Expire-Date: 0
-          %no-protections
+          %no-protection
           %commit
           EOF
 
           gpg --batch --generate-key keyparams
-
-          # Get fingerprint and export pubkey
           FPR="$(gpg --list-secret-keys --with-colons demo@example.com | awk -F: '$1=="fpr"{print $10; exit}')"
+
           mkdir -p .validtr/pubkeys
           gpg --armor --export "$FPR" > .validtr/pubkeys/demo.asc
+          gpg --batch --import .validtr/pubkeys/demo.asc >/dev/null
 
-          # --- configure git signing ---
+          # Git signing config
           git config user.name "Demo Dev"
           git config user.email "demo@example.com"
           git config commit.gpgsign true
@@ -92,67 +69,45 @@ jobs:
           echo "hello" > file.txt
           git add file.txt
           git commit -m "signed commit 1"
-
           COMMIT1="$(git rev-parse HEAD)"
           KEYID="$(git show -s --format=%GK HEAD)"
 
-          # Allowlist includes the dev+key
-          mkdir -p .validtr
-          cat > .validtr/config.yml <<EOF
-          developers:
-            - email: demo@example.com
-              name: Demo Dev
-              keys:
-                - id: ${KEYID}
-          EOF
-
-          # Import the pubkey so git signature verification can succeed
-          gpg --batch --import .validtr/pubkeys/demo.asc >/dev/null
-
           export VALIDTR_DB="$RUNNER_TEMP/validtr.db"
-          valiDTr sync --config .validtr/config.yml --reset
+          rm -f "$VALIDTR_DB"
+
+          # IMPORTANT: selftest uses the CLI time-window commands (Option 2)
+          valiDTr add-dev demo@example.com --name "Demo Dev"
+          valiDTr add-key demo@example.com "$KEYID"
 
           ROOT="$(git rev-list --max-parents=0 HEAD)"
-          echo "✅ Expect PASS (dev allowed, policy=current)"
+          echo "✅ Expect PASS (policy=current)"
           valiDTr --policy=current verify-range "$ROOT" "$COMMIT1"
 
-          # Now remove dev from config and make a new commit (still signed)
-          cat > .validtr/config.yml <<'EOF'
-          developers: []
-          EOF
-          valiDTr sync --config .validtr/config.yml --reset
+          # Remove dev, then create another signed commit
+          valiDTr remove-dev demo@example.com
 
           echo "world" >> file.txt
           git add file.txt
           git commit -m "signed commit 2 after removal"
           COMMIT2="$(git rev-parse HEAD)"
 
-          echo "❌ Expect FAIL (dev removed, policy=current)"
+          echo "❌ Expect FAIL (policy=current) because dev removed"
           set +e
           valiDTr --policy=current verify-range "$COMMIT1" "$COMMIT2"
           RC=$?
           set -e
-
           if [ "$RC" -eq 0 ]; then
             echo "ERROR: expected failure but got success"
             exit 1
           fi
 
-          echo "✅ Expect PASS (historical verify after re-sync)"
-          cat > .validtr/config.yml <<EOF
-          developers:
-            - email: demo@example.com
-              name: Demo Dev
-              keys:
-                - id: ${KEYID}
-          EOF
-          valiDTr sync --config .validtr/config.yml --reset
+          echo "✅ Expect PASS: old commit stays valid under policy=historical"
           valiDTr --policy=historical verify "$COMMIT1"
 
           {
-            echo "### valiDTr Self-Test"
-            echo "- Commit1: $COMMIT1"
-            echo "- Commit2: $COMMIT2"
-            echo "- KeyID:   $KEYID"
-            echo "- Result: PASS (initial), FAIL (after removal), PASS (historical for old commit after re-sync)"
+            echo "### valiDTr self-test results"
+            echo "- Commit1 (before removal): $COMMIT1"
+            echo "- Commit2 (after removal):  $COMMIT2"
+            echo "- KeyID:                   $KEYID"
+            echo "- Expected: PASS → FAIL(current), and Commit1 PASS(historical)"
           } >> "$GITHUB_STEP_SUMMARY"
