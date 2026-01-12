@@ -2,11 +2,9 @@ name: valiDTr Self-Test
 on:
   workflow_dispatch:
   pull_request:
-    branches:
-      - main
+    branches: ["main"]
   push:
-    branches:
-      - main
+    branches: ["main"]
 
 jobs:
   selftest:
