@@ -2,13 +2,11 @@ name: valiDTr
 
 on:
   pull_request:
-    branches: ["main"]
   push:
-    branches: ["main"]
+    branches: [ "main" ]
 
 permissions:
   contents: read
-  actions: read
 
 jobs:
   validtr:
@@ -18,24 +16,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Download valiDTr artifact (from Build run)
-        uses: actions/download-artifact@v4
-        with:
-          name: valiDTr-linux
-          run-id: ${{ github.event.workflow_run.id }}
-          path: ./bin
-
-      - name: Put valiDTr on PATH
-        shell: bash
-        run: |
-            set -euo pipefail
-            BIN="$(find ./bin -type f -name 'valiDTr' | head -n 1)"
-            echo "Found binary at: $BIN"
-            chmod +x "$BIN"
-            echo "$(dirname "$BIN")" >> "$GITHUB_PATH"
-
-      - uses: ./.github/actions/validtr
+      - uses: esuarken/valiDTr/.github/actions/validtr@v1
         with:
           config: .validtr/config.yml
           pubkeys: .validtr/pubkeys/*.asc
           policy: current
+          email_mode: committer
+          module: github.com/esuarken/valiDTr
+          version: v1.0.0

@@ -17,18 +17,43 @@ inputs:
     description: "committer|author"
     required: false
     default: "committer"
+  module:
+    description: "Go module path for valiDTr"
+    required: false
+    default: "github.com/esuarken/valiDTr"
+  version:
+    description: "Go module version (e.g. v1.2.3 or latest)"
+    required: false
+    default: "latest"
+  from:
+    description: "Optional range start SHA (overrides auto-detect)"
+    required: false
+    default: ""
+  to:
+    description: "Optional range end SHA (overrides auto-detect)"
+    required: false
+    default: ""
+
 runs:
   using: "composite"
   steps:
+    - name: Ensure tools
+      shell: bash
+      run: |
+        set -euo pipefail
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends git gnupg jq ca-certificates
+
     - uses: actions/setup-go@v5
       with:
-        go-version: "1.23"
+        go-version: "1.22"
 
     - name: Install valiDTr
       shell: bash
       run: |
         set -euo pipefail
-        go install github.com/esuarken/valiDTr@latest
+        go install "${{ inputs.module }}@${{ inputs.version }}"
+        echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
     - name: Import allowed public keys
       shell: bash
@@ -39,33 +64,38 @@ runs:
         chmod 700 "$GNUPGHOME"
         shopt -s nullglob
         for f in ${{ inputs.pubkeys }}; do
-          gpg --batch --import "$f"
+          gpg --batch --import "$f" >/dev/null
         done
+        gpg --list-keys || true
 
-    - name: Sync allowlist from YAML
+    - name: Sync allowlist DB from YAML
       shell: bash
       run: |
         set -euo pipefail
         export VALIDTR_DB="$RUNNER_TEMP/validtr.db"
         valiDTr sync --config "${{ inputs.config }}" --reset
 
-    - name: Verify range (auto-detect event)
+    - name: Verify range
       shell: bash
       run: |
         set -euo pipefail
         export VALIDTR_DB="$RUNNER_TEMP/validtr.db"
 
-        if [ "${GITHUB_EVENT_NAME}" = "pull_request" ]; then
-          git fetch --no-tags --prune --depth=0 origin \
-            "${GITHUB_BASE_REF}:${GITHUB_BASE_REF}" \
-            "${GITHUB_HEAD_REF}:${GITHUB_HEAD_REF}"
+        FROM="${{ inputs.from }}"
+        TO="${{ inputs.to }}"
 
-          git checkout --force "${GITHUB_HEAD_REF}"
-          FROM="$(git merge-base "${GITHUB_BASE_REF}" HEAD)"
-          TO="$(jq -r .pull_request.head.sha "$GITHUB_EVENT_PATH")"
-        else
-          FROM="$(jq -r .before "$GITHUB_EVENT_PATH")"
-          TO="${GITHUB_SHA}"
+        if [ -z "$FROM" ] || [ -z "$TO" ]; then
+          if [ "${GITHUB_EVENT_NAME}" = "pull_request" ]; then
+            git fetch --no-tags --prune --depth=0 origin \
+              "${GITHUB_BASE_REF}:${GITHUB_BASE_REF}" \
+              "${GITHUB_HEAD_REF}:${GITHUB_HEAD_REF}"
+            git checkout --force "${GITHUB_HEAD_REF}"
+            FROM="$(git merge-base "${GITHUB_BASE_REF}" HEAD)"
+            TO="$(jq -r .pull_request.head.sha "$GITHUB_EVENT_PATH")"
+          else
+            FROM="$(jq -r .before "$GITHUB_EVENT_PATH")"
+            TO="${GITHUB_SHA}"
+          fi
         fi
 
         echo "Range: $FROM..$TO"
