@@ -43,15 +43,18 @@ jobs:
           chmod 700 "$GNUPGHOME"
 
           cat >keyparams <<'EOF'
-          Key-Type: default
+          Key-Type: RSA
           Key-Length: 3072
-          Subkey-Type: default
+          Subkey-Type: RSA
+          Subkey-Length: 3072
           Name-Real: Demo Dev
           Name-Email: demo@example.com
           Expire-Date: 0
           %no-protection
           %commit
           EOF
+
+          gpg --batch --pinentry-mode loopback --generate-key keyparams
 
           gpg --batch --generate-key keyparams
           FPR="$(gpg --list-secret-keys --with-colons demo@example.com | awk -F: '$1=="fpr"{print $10; exit}')"
