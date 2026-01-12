@@ -31,15 +31,22 @@ runs:
     - name: Build valiDTr from this action repo
       shell: bash
       run: |
+    - name: Build valiDTr from this action repo
+      shell: bash
+      run: |
         set -euo pipefail
         REPO_ROOT="$(cd "$GITHUB_ACTION_PATH/../../.." && pwd)"
-        echo "Action repo root: $REPO_ROOT"
+
+        # don't inherit consumer repo go.work
         export GOWORK=off
         export CGO_ENABLED=1
+
         pushd "$REPO_ROOT" >/dev/null
         go build -o "$RUNNER_TEMP/valiDTr" .
         popd >/dev/null
+
         echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+
 
     - name: Import allowed public keys
       shell: bash
