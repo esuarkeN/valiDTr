@@ -1,11 +1,10 @@
 name: valiDTr Self-Test
 on:
-  workflow_dispatch:
   pull_request:
     branches: ["main"]
   push:
     branches: ["main"]
-
+  workflow_dispatch:
 jobs:
   selftest:
     runs-on: ubuntu-latest
