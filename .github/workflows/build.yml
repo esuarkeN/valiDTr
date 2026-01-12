@@ -27,7 +27,6 @@ jobs:
           go test ./...
 
   build_binary:
-    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -52,7 +51,6 @@ jobs:
           if-no-files-found: error
 
   docker_image:
-    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
