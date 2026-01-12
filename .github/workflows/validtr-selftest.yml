@@ -37,7 +37,6 @@ jobs:
           cd "$WORK"
           git init
 
-          # GPG setup
           export GNUPGHOME="$RUNNER_TEMP/gnupg"
           mkdir -p "$GNUPGHOME"
           chmod 700 "$GNUPGHOME"
@@ -56,39 +55,61 @@ jobs:
 
           gpg --batch --pinentry-mode loopback --generate-key keyparams
 
-          gpg --batch --generate-key keyparams
-          FPR="$(gpg --list-secret-keys --with-colons demo@example.com | awk -F: '$1=="fpr"{print $10; exit}')"
-
+          # export pubkey
           mkdir -p .validtr/pubkeys
+          FPR="$(gpg --list-secret-keys --with-colons demo@example.com | awk -F: '$1=="fpr"{print $10; exit}')"
           gpg --armor --export "$FPR" > .validtr/pubkeys/demo.asc
-          gpg --batch --import .validtr/pubkeys/demo.asc >/dev/null
 
-          # Git signing config
+          # IMPORTANT: extract the key-id BEFORE commits (same format as %GK uses)
+          KEYID="$(gpg --list-keys --with-colons demo@example.com | awk -F: '$1=="pub"{print $5; exit}')"
+
+          # --- Git signing config ---
           git config user.name "Demo Dev"
           git config user.email "demo@example.com"
           git config commit.gpgsign true
           git config user.signingkey "$FPR"
 
-          echo "hello" > file.txt
-          git add file.txt
-          git commit -m "signed commit 1"
-          COMMIT1="$(git rev-parse HEAD)"
-          KEYID="$(git show -s --format=%GK HEAD)"
+          # --- Create allowlist config BEFORE commit1 ---
+          mkdir -p .validtr
+          cat > .validtr/config.yml <<EOF
+          developers:
+            - email: demo@example.com
+              name: Demo Dev
+              keys:
+                - id: ${KEYID}
+          EOF
+
+          # import pubkey into runner keyring so git signature verification succeeds
+          gpg --batch --import .validtr/pubkeys/demo.asc >/dev/null
 
           export VALIDTR_DB="$RUNNER_TEMP/validtr.db"
           rm -f "$VALIDTR_DB"
 
-          # IMPORTANT: selftest uses the CLI time-window commands (Option 2)
-          valiDTr add-dev demo@example.com --name "Demo Dev"
-          valiDTr add-key demo@example.com "$KEYID"
+          # This must create dev/key with an "added_at" that allows existing history.
+          # Your sync should do that (epoch) in reconcile mode.
+          valiDTr sync --config .validtr/config.yml --mode=reconcile
+
+          # --- Commit 1 ---
+          echo "hello" > file.txt
+          git add file.txt
+          git commit -m "signed commit 1"
+          COMMIT1="$(git rev-parse HEAD)"
 
           ROOT="$(git rev-list --max-parents=0 HEAD)"
+
           echo "✅ Expect PASS (policy=current)"
           valiDTr --policy=current verify-range "$ROOT" "$COMMIT1"
 
-          # Remove dev, then create another signed commit
-          valiDTr remove-dev demo@example.com
+          echo "✅ Expect PASS (policy=historical)"
+          valiDTr --policy=historical verify "$COMMIT1"
 
+          # --- Remove dev from config + reconcile (should set removed_at, NOT delete) ---
+          cat > .validtr/config.yml <<'EOF'
+          developers: []
+          EOF
+          valiDTr sync --config .validtr/config.yml --mode=reconcile
+
+          # --- Commit 2 (still signed) ---
           echo "world" >> file.txt
           git add file.txt
           git commit -m "signed commit 2 after removal"
@@ -99,13 +120,11 @@ jobs:
           valiDTr --policy=current verify-range "$COMMIT1" "$COMMIT2"
           RC=$?
           set -e
-          if [ "$RC" -eq 0 ]; then
-            echo "ERROR: expected failure but got success"
-            exit 1
-          fi
+          [ "$RC" -ne 0 ] || (echo "ERROR: expected failure but got success" && exit 1)
 
           echo "✅ Expect PASS: old commit stays valid under policy=historical"
           valiDTr --policy=historical verify "$COMMIT1"
+
 
           {
             echo "### valiDTr self-test results"
