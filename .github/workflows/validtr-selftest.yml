@@ -1,7 +1,6 @@
 name: valiDTr Self-Test
 
 on:
-on:
   pull_request:
     branches: ["main"]
   push:
@@ -13,7 +12,6 @@ permissions:
 
 jobs:
   selftest:
-    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
 
     steps:
@@ -72,7 +70,7 @@ jobs:
           Name-Real: Demo Dev
           Name-Email: demo@example.com
           Expire-Date: 0
-          %no-protection
+          %no-protections
           %commit
           EOF
 
