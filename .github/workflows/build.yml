@@ -58,7 +58,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Compute image name (lowercase)
+      - name: Compute image name
         id: img
         shell: bash
         run: |
@@ -70,7 +70,7 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # PR: build only (and load it so we can run smoke tests)
+      # PR: build only 
       - name: Build image (PR)
         if: ${{ github.event_name == 'pull_request' }}
         uses: docker/build-push-action@v6
