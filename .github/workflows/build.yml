@@ -12,7 +12,22 @@ permissions:
   packages: write
 
 jobs:
-  build:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+
+      - name: Unit tests
+        run: |
+          set -euo pipefail
+          go test ./...
+
+  build_binary:
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -34,8 +49,42 @@ jobs:
           path: dist/valiDTr
           if-no-files-found: error
 
-      # Docker image build (push only on main pushes)
-      - name: Login to GHCR
+  docker_image:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set image tag
+        id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "tag=ghcr.io/${{ github.repository_owner }}/validtr:${{ github.sha }}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # PR: build only
+      - name: Build image (PR)
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: dockerfile
+          push: false
+          load: true
+          tags: ${{ steps.meta.outputs.tag }}
+
+      - name: Smoke test image (PR)
+        if: ${{ github.event_name == 'pull_request' }}
+        run: |
+          set -euo pipefail
+          docker run --rm "${{ steps.meta.outputs.tag }}" --help >/dev/null
+          docker run --rm "${{ steps.meta.outputs.tag }}" --version || true
+
+      # main push: login + push
+      - name: Login to GHCR (main push)
         if: ${{ github.event_name == 'push' }}
         uses: docker/login-action@v3
         with:
@@ -43,12 +92,12 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build & push image
+      - name: Build & push image (main push)
         if: ${{ github.event_name == 'push' }}
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: dockerfile 
+          file: dockerfile
           push: true
           tags: |
             ghcr.io/${{ github.repository_owner }}/validtr:${{ github.sha }}
