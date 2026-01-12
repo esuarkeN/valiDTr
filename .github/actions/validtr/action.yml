@@ -2,19 +2,15 @@ name: "valiDTr"
 description: "Verify signed commits against a time-aware developer/key allowlist"
 inputs:
   config:
-    description: "Path to .validtr/config.yml"
     required: true
     default: ".validtr/config.yml"
   pubkeys:
-    description: "Glob for ASCII-armored pubkeys to import"
     required: true
     default: ".validtr/pubkeys/*.asc"
   policy:
-    description: "current|historical"
     required: false
-    default: "current"
+    default: "historical" 
   email_mode:
-    description: "committer|author"
     required: false
     default: "committer"
 
@@ -30,13 +26,12 @@ runs:
 
     - uses: actions/setup-go@v5
       with:
-        go-version: "1.22"
+        go-version: "1.23"
 
     - name: Build valiDTr from this action repo
       shell: bash
       run: |
         set -euo pipefail
-        # action lives in .github/actions/validtr -> repo root is 3 levels up
         REPO_ROOT="$(cd "$GITHUB_ACTION_PATH/../../.." && pwd)"
         go build -o "$RUNNER_TEMP/valiDTr" "$REPO_ROOT"
         echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
@@ -53,12 +48,12 @@ runs:
           gpg --batch --import "$f" >/dev/null
         done
 
-    - name: Sync allowlist DB from YAML
+    - name: Sync allowlist (MUST preserve history)
       shell: bash
       run: |
         set -euo pipefail
         export VALIDTR_DB="$RUNNER_TEMP/validtr.db"
-        valiDTr sync --config "${{ inputs.config }}" --reset
+        valiDTr sync --config "${{ inputs.config }}" --mode=reconcile
 
     - name: Verify range
       shell: bash
