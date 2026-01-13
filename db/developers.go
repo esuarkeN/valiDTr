@@ -83,12 +83,20 @@ func IsDeveloperActiveAt(email string, t time.Time) (bool, error) {
 		return false, nil
 	}
 
-	if t.Before(d.AddedAt) {
+	commitSec := t.UTC().Unix()
+	addedSec := d.AddedAt.UTC().Unix()
+
+	if commitSec < addedSec {
 		return false, nil
 	}
-	if d.RemovedAt.Valid && !t.Before(d.RemovedAt.Time) {
-		return false, nil
+
+	if d.RemovedAt.Valid {
+		removedSec := d.RemovedAt.Time.UTC().Unix()
+		if commitSec >= removedSec {
+			return false, nil
+		}
 	}
+
 	return true, nil
 }
 
