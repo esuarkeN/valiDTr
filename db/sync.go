@@ -40,7 +40,6 @@ INSERT INTO developers(email, name, added_at, removed_at)
 VALUES(?, ?, ?, ?)
 ON CONFLICT(email) DO UPDATE SET
   name = excluded.name,
-  added_at = excluded.added_at,
   removed_at = excluded.removed_at
 `, email, name, addedAt, removedAt)
 

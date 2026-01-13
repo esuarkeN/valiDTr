@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM golang:1.22-bookworm AS builder
+FROM golang:1.23-bookworm AS builder
 WORKDIR /src
 
 RUN apt-get update && apt-get install -y --no-install-recommends gcc libc6-dev \

@@ -17,7 +17,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.22"
+          go-version: "1.23"
 
       - name: Build valiDTr from this repo
         shell: bash
@@ -35,9 +35,8 @@ jobs:
           WORK="$RUNNER_TEMP/demo"
           mkdir -p "$WORK"
           cd "$WORK"
-          git init
+          git init -b main
 
-          # GPG setup
           export GNUPGHOME="$RUNNER_TEMP/gnupg"
           mkdir -p "$GNUPGHOME"
           chmod 700 "$GNUPGHOME"
@@ -56,12 +55,8 @@ jobs:
 
           gpg --batch --pinentry-mode loopback --generate-key keyparams
 
-          gpg --batch --generate-key keyparams
+          # fingerprint for signing config + exporting pubkey
           FPR="$(gpg --list-secret-keys --with-colons demo@example.com | awk -F: '$1=="fpr"{print $10; exit}')"
-
-          mkdir -p .validtr/pubkeys
-          gpg --armor --export "$FPR" > .validtr/pubkeys/demo.asc
-          gpg --batch --import .validtr/pubkeys/demo.asc >/dev/null
 
           # Git signing config
           git config user.name "Demo Dev"
@@ -69,29 +64,59 @@ jobs:
           git config commit.gpgsign true
           git config user.signingkey "$FPR"
 
+          export GIT_AUTHOR_DATE="2020-01-01T00:00:00Z"
+          export GIT_COMMITTER_DATE="2020-01-01T00:00:00Z"
+
           echo "hello" > file.txt
           git add file.txt
           git commit -m "signed commit 1"
+
+          unset GIT_AUTHOR_DATE GIT_COMMITTER_DATE
+
           COMMIT1="$(git rev-parse HEAD)"
-          KEYID="$(git show -s --format=%GK HEAD)"
+          ROOT="$(git rev-list --max-parents=0 HEAD)"
+
+          KEYID="$(git show -s --format=%GK "$COMMIT1")"
+          echo "Commit1 key id (git %GK): $KEYID"
+
+          mkdir -p .validtr/pubkeys
+          gpg --armor --export "$FPR" > .validtr/pubkeys/demo.asc
+          gpg --batch --import .validtr/pubkeys/demo.asc >/dev/null
+
+          mkdir -p .validtr
+          cat > .validtr/config.yml <<EOF
+          developers:
+            - email: demo@example.com
+              name: Demo Dev
+              keys:
+                - id: ${KEYID}
+          EOF
 
           export VALIDTR_DB="$RUNNER_TEMP/validtr.db"
           rm -f "$VALIDTR_DB"
 
-          # IMPORTANT: selftest uses the CLI time-window commands (Option 2)
-          valiDTr add-dev demo@example.com --name "Demo Dev"
-          valiDTr add-key demo@example.com "$KEYID"
+          valiDTr sync --config .validtr/config.yml --mode=reconcile
 
-          ROOT="$(git rev-list --max-parents=0 HEAD)"
           echo "✅ Expect PASS (policy=current)"
           valiDTr --policy=current verify-range "$ROOT" "$COMMIT1"
 
-          # Remove dev, then create another signed commit
-          valiDTr remove-dev demo@example.com
+          echo "✅ Expect PASS (policy=historical)"
+          valiDTr --policy=historical verify "$COMMIT1"
+
+          cat > .validtr/config.yml <<'EOF'
+          developers: []
+          EOF
+          valiDTr sync --config .validtr/config.yml --mode=reconcile
+
+          export GIT_AUTHOR_DATE="2030-01-02T00:00:00Z"
+          export GIT_COMMITTER_DATE="2030-01-02T00:00:00Z"
 
           echo "world" >> file.txt
           git add file.txt
           git commit -m "signed commit 2 after removal"
+
+          unset GIT_AUTHOR_DATE GIT_COMMITTER_DATE
+
           COMMIT2="$(git rev-parse HEAD)"
 
           echo "❌ Expect FAIL (policy=current) because dev removed"
@@ -99,18 +124,22 @@ jobs:
           valiDTr --policy=current verify-range "$COMMIT1" "$COMMIT2"
           RC=$?
           set -e
-          if [ "$RC" -eq 0 ]; then
-            echo "ERROR: expected failure but got success"
-            exit 1
-          fi
+          [ "$RC" -ne 0 ] || (echo "ERROR: expected failure but got success" && exit 1)
 
           echo "✅ Expect PASS: old commit stays valid under policy=historical"
           valiDTr --policy=historical verify "$COMMIT1"
+
+          echo "❌ Expect FAIL: new commit should be rejected under policy=historical"
+          set +e
+          valiDTr --policy=historical verify "$COMMIT2"
+          RC2=$?
+          set -e
+          [ "$RC2" -ne 0 ] || (echo "ERROR: expected historical failure but got success" && exit 1)
 
           {
             echo "### valiDTr self-test results"
             echo "- Commit1 (before removal): $COMMIT1"
             echo "- Commit2 (after removal):  $COMMIT2"
-            echo "- KeyID:                   $KEYID"
-            echo "- Expected: PASS → FAIL(current), and Commit1 PASS(historical)"
+            echo "- KeyID (git %GK):          $KEYID"
+            echo "- Expected: Commit1 PASS (current + historical), Commit2 FAIL (current + historical)"
           } >> "$GITHUB_STEP_SUMMARY"
