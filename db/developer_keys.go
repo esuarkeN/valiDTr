@@ -104,16 +104,17 @@ func IsKeyActiveForDeveloperAt(email, keyID string, t time.Time) (bool, error) {
 
 	commitSec := t.UTC().Unix()
 	addedSec := addedAt.UTC().Unix()
+
 	if commitSec < addedSec {
 		return false, nil
 	}
+
 	if revokedAt.Valid {
 		revokedSec := revokedAt.Time.UTC().Unix()
 		if commitSec >= revokedSec {
 			return false, nil
 		}
 	}
-	return true, nil
 
 	return true, nil
 }
