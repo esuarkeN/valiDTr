@@ -108,8 +108,8 @@ jobs:
           EOF
           valiDTr sync --config .validtr/config.yml --mode=reconcile
 
-          export GIT_AUTHOR_DATE="2020-01-02T00:00:00Z"
-          export GIT_COMMITTER_DATE="2020-01-02T00:00:00Z"
+          export GIT_AUTHOR_DATE="2030-01-02T00:00:00Z"
+          export GIT_COMMITTER_DATE="2030-01-02T00:00:00Z"
 
           echo "world" >> file.txt
           git add file.txt
