@@ -64,18 +64,21 @@ jobs:
           git config commit.gpgsign true
           git config user.signingkey "$FPR"
 
-          # Commit 1 (signed)
+          export GIT_AUTHOR_DATE="2020-01-01T00:00:00Z"
+          export GIT_COMMITTER_DATE="2020-01-01T00:00:00Z"
+
           echo "hello" > file.txt
           git add file.txt
           git commit -m "signed commit 1"
+
+          unset GIT_AUTHOR_DATE GIT_COMMITTER_DATE
+
           COMMIT1="$(git rev-parse HEAD)"
           ROOT="$(git rev-list --max-parents=0 HEAD)"
 
-          # IMPORTANT: use the exact key-id Git records for this commit
           KEYID="$(git show -s --format=%GK "$COMMIT1")"
           echo "Commit1 key id (git %GK): $KEYID"
 
-          # Create allowlist config using KEYID from git
           mkdir -p .validtr/pubkeys
           gpg --armor --export "$FPR" > .validtr/pubkeys/demo.asc
           gpg --batch --import .validtr/pubkeys/demo.asc >/dev/null
@@ -92,7 +95,6 @@ jobs:
           export VALIDTR_DB="$RUNNER_TEMP/validtr.db"
           rm -f "$VALIDTR_DB"
 
-          # Reconcile sync must exist in your CLI now
           valiDTr sync --config .validtr/config.yml --mode=reconcile
 
           echo "✅ Expect PASS (policy=current)"
@@ -101,16 +103,20 @@ jobs:
           echo "✅ Expect PASS (policy=historical)"
           valiDTr --policy=historical verify "$COMMIT1"
 
-          # Remove dev from config + reconcile (sets removed_at)
           cat > .validtr/config.yml <<'EOF'
           developers: []
           EOF
           valiDTr sync --config .validtr/config.yml --mode=reconcile
 
-          # Commit 2 (still signed)
+          export GIT_AUTHOR_DATE="2020-01-02T00:00:00Z"
+          export GIT_COMMITTER_DATE="2020-01-02T00:00:00Z"
+
           echo "world" >> file.txt
           git add file.txt
           git commit -m "signed commit 2 after removal"
+
+          unset GIT_AUTHOR_DATE GIT_COMMITTER_DATE
+
           COMMIT2="$(git rev-parse HEAD)"
 
           echo "❌ Expect FAIL (policy=current) because dev removed"
