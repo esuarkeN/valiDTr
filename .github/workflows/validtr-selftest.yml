@@ -103,6 +103,29 @@ jobs:
           echo "✅ Expect PASS (policy=historical)"
           valiDTr --policy=historical verify "$COMMIT1"
 
+          echo "✅ Expect PASS (email_mode=author)"
+          GIT_AUTHOR_NAME="Demo Dev" GIT_AUTHOR_EMAIL="demo@example.com" \
+            valiDTr --policy=current --email-mode=author verify "$COMMIT1"
+
+          # Revoke key (keep developer, remove key from allowlist)
+          cat > .validtr/config.yml <<EOF
+          developers:
+            - email: demo@example.com
+              name: Demo Dev
+              keys: []
+          EOF
+          valiDTr sync --config .validtr/config.yml --mode=reconcile
+
+          echo "❌ Expect FAIL (policy=current) because key revoked"
+          set +e
+          valiDTr --policy=current verify "$COMMIT1"
+          RC0=$?
+          set -e
+          [ "$RC0" -ne 0 ] || (echo "ERROR: expected current failure (key revoked) but got success" && exit 1)
+
+          echo "✅ Expect PASS (policy=historical) because key was valid at commit time"
+          valiDTr --policy=historical verify "$COMMIT1"
+
           cat > .validtr/config.yml <<'EOF'
           developers: []
           EOF
