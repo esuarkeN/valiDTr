@@ -1,0 +1,89 @@
+name: "valiDTr"
+description: "Verify signed commits against a time-aware developer/key allowlist"
+inputs:
+  config:
+    required: true
+    default: ".validtr/config.yml"
+  pubkeys:
+    required: true
+    default: ".validtr/pubkeys/*.asc"
+  policy:
+    required: false
+    default: "historical" 
+  email_mode:
+    required: false
+    default: "committer"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Install required tools
+      shell: bash
+      run: |
+        set -euo pipefail
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends git gnupg jq gcc libc6-dev ca-certificates
+
+    - uses: actions/setup-go@v5
+      with:
+        go-version: "1.23"
+
+    - name: Build valiDTr from this action repo
+      shell: bash
+      run: |
+    - name: Build valiDTr from this action repo
+      shell: bash
+      run: |
+        set -euo pipefail
+        REPO_ROOT="$(cd "$GITHUB_ACTION_PATH/../../.." && pwd)"
+
+        # don't inherit consumer repo go.work
+        export GOWORK=off
+        export CGO_ENABLED=1
+
+        pushd "$REPO_ROOT" >/dev/null
+        go build -o "$RUNNER_TEMP/valiDTr" .
+        popd >/dev/null
+
+        echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+
+
+    - name: Import allowed public keys
+      shell: bash
+      run: |
+        set -euo pipefail
+        export GNUPGHOME="$RUNNER_TEMP/gnupg"
+        mkdir -p "$GNUPGHOME"
+        chmod 700 "$GNUPGHOME"
+        shopt -s nullglob
+        for f in ${{ inputs.pubkeys }}; do
+          gpg --batch --import "$f" >/dev/null
+        done
+
+    - name: Sync allowlist (MUST preserve history)
+      shell: bash
+      run: |
+        set -euo pipefail
+        export VALIDTR_DB="$RUNNER_TEMP/validtr.db"
+        valiDTr sync --config "${{ inputs.config }}" --mode=reconcile
+
+    - name: Verify range
+      shell: bash
+      run: |
+        set -euo pipefail
+        export VALIDTR_DB="$RUNNER_TEMP/validtr.db"
+
+        if [ "${GITHUB_EVENT_NAME}" = "pull_request" ]; then
+          git fetch --no-tags --prune --depth=0 origin \
+            "${GITHUB_BASE_REF}:${GITHUB_BASE_REF}" \
+            "${GITHUB_HEAD_REF}:${GITHUB_HEAD_REF}"
+          git checkout --force "${GITHUB_HEAD_REF}"
+          FROM="$(git merge-base "${GITHUB_BASE_REF}" HEAD)"
+          TO="$(jq -r .pull_request.head.sha "$GITHUB_EVENT_PATH")"
+        else
+          FROM="$(jq -r .before "$GITHUB_EVENT_PATH")"
+          TO="${GITHUB_SHA}"
+        fi
+
+        echo "Range: $FROM..$TO"
+        valiDTr --policy="${{ inputs.policy }}" --email-mode="${{ inputs.email_mode }}" verify-range "$FROM" "$TO"

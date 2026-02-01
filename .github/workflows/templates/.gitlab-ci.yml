@@ -1,0 +1,41 @@
+stages: [verify]
+
+validtr:
+    stage: verify
+    image: golang:1.23
+    variables:
+        GIT_DEPTH: "0"
+    before_script:
+        - apt-get update
+        - apt-get install -y --no-install-recommends git gnupg ca-certificates
+    script:
+        - go install github.com/esuarken/valiDTr@latest
+
+        # Import allowed public keys so git signature verification can succeed
+        - export GNUPGHOME="$CI_PROJECT_DIR/.gnupg"
+        - mkdir -p "$GNUPGHOME" && chmod 700 "$GNUPGHOME"
+        - |
+            shopt -s nullglob
+            for f in .validtr/pubkeys/*.asc; do
+              gpg --batch --import "$f"
+            done
+
+        # Build allowlist DB from YAML (pipeline-friendly)
+        - export VALIDTR_DB="$CI_PROJECT_DIR/.validtr.db"
+        - valiDTr sync --config .validtr/config.yml --reset
+
+        # Choose a good range:
+        # - MR pipelines may not have CI_COMMIT_BEFORE_SHA; prefer MR base/source SHAs if present
+        - |
+            set -euo pipefail
+
+            if [ -n "${CI_MERGE_REQUEST_DIFF_BASE_SHA:-}" ] && [ -n "${CI_MERGE_REQUEST_SOURCE_BRANCH_SHA:-}" ]; then
+              FROM="$CI_MERGE_REQUEST_DIFF_BASE_SHA"
+              TO="$CI_MERGE_REQUEST_SOURCE_BRANCH_SHA"
+            else
+              FROM="${CI_COMMIT_BEFORE_SHA:-}"
+              TO="${CI_COMMIT_SHA:-}"
+            fi
+
+            echo "Range: $FROM..$TO"
+            valiDTr --policy=current verify-range "$FROM" "$TO"
