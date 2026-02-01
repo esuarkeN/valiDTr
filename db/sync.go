@@ -21,6 +21,9 @@ func ResetAll() error {
 	if _, err := tx.Exec(`DELETE FROM developer_keys;`); err != nil {
 		return err
 	}
+	if _, err := tx.Exec(`DELETE FROM developer_status;`); err != nil {
+		return err
+	}
 	if _, err := tx.Exec(`DELETE FROM developers;`); err != nil {
 		return err
 	}

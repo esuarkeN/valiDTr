@@ -16,17 +16,22 @@ var verifyRangeCmd = &cobra.Command{
 		from := args[0]
 		to := args[1]
 
+		includeRoot := false
 		if strings.Trim(from, "0") == "" {
 			root, err := git.RootCommit(to)
 			if err != nil {
 				return err
 			}
 			from = root
+			includeRoot = true
 		}
 
 		commits, err := git.CommitsInRange(from, to)
 		if err != nil {
 			return err
+		}
+		if includeRoot {
+			commits = append([]string{from}, commits...)
 		}
 
 		for _, c := range commits {

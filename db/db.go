@@ -30,6 +30,14 @@ CREATE TABLE IF NOT EXISTS developers (
   removed_at TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS developer_status (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  developer_id INTEGER NOT NULL,
+  added_at     TIMESTAMP NOT NULL,
+  removed_at   TIMESTAMP,
+  FOREIGN KEY(developer_id) REFERENCES developers(id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS developer_keys (
   id           INTEGER PRIMARY KEY AUTOINCREMENT,
   developer_id INTEGER NOT NULL,
@@ -39,11 +47,23 @@ CREATE TABLE IF NOT EXISTS developer_keys (
   FOREIGN KEY(developer_id) REFERENCES developers(id) ON DELETE CASCADE
 );
 
+CREATE INDEX IF NOT EXISTS idx_devstatus_dev ON developer_status(developer_id);
 CREATE INDEX IF NOT EXISTS idx_devkeys_dev ON developer_keys(developer_id);
 CREATE INDEX IF NOT EXISTS idx_devkeys_key ON developer_keys(key_id);
 `
 	if _, err := db.Exec(schema); err != nil {
 		return fmt.Errorf("init schema: %w", err)
+	}
+
+	if _, err := db.Exec(`
+INSERT INTO developer_status(developer_id, added_at, removed_at)
+SELECT d.id, d.added_at, d.removed_at
+FROM developers d
+WHERE NOT EXISTS (
+  SELECT 1 FROM developer_status s WHERE s.developer_id = d.id
+)
+`); err != nil {
+		return fmt.Errorf("init developer_status: %w", err)
 	}
 
 	return nil

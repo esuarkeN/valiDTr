@@ -68,7 +68,8 @@ func VerifyCommitSignature(commit string) error {
 	if err != nil {
 		return err
 	}
-	if st != "G" {
+	// Accept good signatures even if the key isn't trusted in the local keyring.
+	if st != "G" && st != "U" {
 		return fmt.Errorf("signature not valid: %%G?=%s", st)
 	}
 	return nil

@@ -54,6 +54,15 @@ func SyncFromYAML(path string, reset bool) error {
 		if err := UpsertDeveloper(d.Email, d.Name, epoch, none); err != nil {
 			return err
 		}
+		active, err := HasActiveDeveloperStatus(d.Email)
+		if err != nil {
+			return err
+		}
+		if !active {
+			if err := AddDeveloperStatus(d.Email, epoch.Time, none); err != nil {
+				return err
+			}
+		}
 		for _, k := range d.Keys {
 			if k.ID == "" {
 				return fmt.Errorf("developer %s has key with empty id", d.Email)

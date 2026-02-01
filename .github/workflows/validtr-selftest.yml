@@ -131,8 +131,10 @@ jobs:
           EOF
           valiDTr sync --config .validtr/config.yml --mode=reconcile
 
-          export GIT_AUTHOR_DATE="2030-01-02T00:00:00Z"
-          export GIT_COMMITTER_DATE="2030-01-02T00:00:00Z"
+          NOW_TS="$(date -u +%s)"
+          COMMIT2_TS="$((NOW_TS + 1))"
+          export GIT_AUTHOR_DATE="@${COMMIT2_TS}"
+          export GIT_COMMITTER_DATE="@${COMMIT2_TS}"
 
           echo "world" >> file.txt
           git add file.txt
@@ -159,10 +161,44 @@ jobs:
           set -e
           [ "$RC2" -ne 0 ] || (echo "ERROR: expected historical failure but got success" && exit 1)
 
+          sleep 2
+          cat > .validtr/config.yml <<EOF
+          developers:
+            - email: demo@example.com
+              name: Demo Dev
+              keys:
+                - id: ${KEYID}
+          EOF
+          valiDTr sync --config .validtr/config.yml --mode=reconcile
+
+          echo "❌ Expect FAIL: commit during removal stays invalid even after re-add"
+          set +e
+          valiDTr --policy=historical verify "$COMMIT2"
+          RC3=$?
+          set -e
+          [ "$RC3" -ne 0 ] || (echo "ERROR: expected historical failure after re-add but got success" && exit 1)
+
+          READD_TS="$(date -u +%s)"
+          COMMIT3_TS="$((READD_TS + 1))"
+          export GIT_AUTHOR_DATE="@${COMMIT3_TS}"
+          export GIT_COMMITTER_DATE="@${COMMIT3_TS}"
+
+          echo "again" >> file.txt
+          git add file.txt
+          git commit -m "signed commit 3 after re-add"
+
+          unset GIT_AUTHOR_DATE GIT_COMMITTER_DATE
+
+          COMMIT3="$(git rev-parse HEAD)"
+
+          echo "✅ Expect PASS: commit after re-add should pass under policy=historical"
+          valiDTr --policy=historical verify "$COMMIT3"
+
           {
             echo "### valiDTr self-test results"
             echo "- Commit1 (before removal): $COMMIT1"
             echo "- Commit2 (after removal):  $COMMIT2"
+            echo "- Commit3 (after re-add):   $COMMIT3"
             echo "- KeyID (git %GK):          $KEYID"
-            echo "- Expected: Commit1 PASS (current + historical), Commit2 FAIL (current + historical)"
+            echo "- Expected: Commit1 PASS (current + historical), Commit2 FAIL (current + historical), Commit3 PASS (historical)"
           } >> "$GITHUB_STEP_SUMMARY"

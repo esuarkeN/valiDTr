@@ -66,6 +66,13 @@ func SyncFromYAMLReconcile(path string) error {
 				return fmt.Errorf("insert developer %s: %w", d.Email, e)
 			}
 			devID, _ = res.LastInsertId()
+			if _, e := tx.Exec(
+				`INSERT INTO developer_status(developer_id, added_at, removed_at)
+				 VALUES(?, ?, NULL)`,
+				devID, epoch,
+			); e != nil {
+				return fmt.Errorf("insert developer status %s: %w", d.Email, e)
+			}
 		} else if err != nil {
 			return fmt.Errorf("select developer %s: %w", d.Email, err)
 		} else {
@@ -76,6 +83,25 @@ func SyncFromYAMLReconcile(path string) error {
 			if e != nil {
 				return fmt.Errorf("update developer %s: %w", d.Email, e)
 			}
+			var dummy int
+			err = tx.QueryRow(
+				`SELECT 1 FROM developer_status
+				 WHERE developer_id = ? AND removed_at IS NULL
+				 LIMIT 1`,
+				devID,
+			).Scan(&dummy)
+			if err != nil && err != sql.ErrNoRows {
+				return fmt.Errorf("check developer status %s: %w", d.Email, err)
+			}
+			if err == sql.ErrNoRows {
+				if _, e := tx.Exec(
+					`INSERT INTO developer_status(developer_id, added_at, removed_at)
+					 VALUES(?, ?, NULL)`,
+					devID, now,
+				); e != nil {
+					return fmt.Errorf("reactivate developer %s: %w", d.Email, e)
+				}
+			}
 		}
 
 		keySet := map[string]struct{}{}
@@ -84,24 +110,36 @@ func SyncFromYAMLReconcile(path string) error {
 				return fmt.Errorf("developer %s has a key with empty id", d.Email)
 			}
 			keySet[k.ID] = struct{}{}
-			res, e := tx.Exec(
-				`UPDATE developer_keys
-				 SET revoked_at = NULL
-				 WHERE developer_id = ? AND key_id = ?`,
+			var dummy int
+			err = tx.QueryRow(
+				`SELECT 1 FROM developer_keys
+				 WHERE developer_id = ? AND key_id = ? AND revoked_at IS NULL
+				 LIMIT 1`,
 				devID, k.ID,
-			)
-			if e != nil {
-				return fmt.Errorf("reactivate key %s for %s: %w", k.ID, d.Email, e)
+			).Scan(&dummy)
+			if err != nil && err != sql.ErrNoRows {
+				return fmt.Errorf("check active key %s for %s: %w", k.ID, d.Email, err)
 			}
-			ra, _ := res.RowsAffected()
-			if ra == 0 {
-				// Insert new mapping backdated to epoch
-				_, e2 := tx.Exec(
+			if err == sql.ErrNoRows {
+				// If the key existed before and was revoked, re-add with "now" to preserve the revoke window.
+				addedAt := epoch
+				err = tx.QueryRow(
+					`SELECT 1 FROM developer_keys
+					 WHERE developer_id = ? AND key_id = ?
+					 LIMIT 1`,
+					devID, k.ID,
+				).Scan(&dummy)
+				if err != nil && err != sql.ErrNoRows {
+					return fmt.Errorf("check prior key %s for %s: %w", k.ID, d.Email, err)
+				}
+				if err != sql.ErrNoRows {
+					addedAt = now
+				}
+				if _, e2 := tx.Exec(
 					`INSERT INTO developer_keys(developer_id, key_id, added_at, revoked_at)
 					 VALUES(?, ?, ?, NULL)`,
-					devID, k.ID, epoch,
-				)
-				if e2 != nil {
+					devID, k.ID, addedAt,
+				); e2 != nil {
 					return fmt.Errorf("insert key %s for %s: %w", k.ID, d.Email, e2)
 				}
 			}
@@ -139,6 +177,9 @@ func SyncFromYAMLReconcile(path string) error {
 	}
 
 	if len(cfgEmails) == 0 {
+		if _, err := tx.Exec(`UPDATE developer_status SET removed_at = ? WHERE removed_at IS NULL`, now); err != nil {
+			return fmt.Errorf("remove all devs: %w", err)
+		}
 		if _, err := tx.Exec(`UPDATE developers SET removed_at = ? WHERE removed_at IS NULL`, now); err != nil {
 			return fmt.Errorf("remove all devs: %w", err)
 		}
@@ -154,6 +195,17 @@ func SyncFromYAMLReconcile(path string) error {
 		}
 
 		q := fmt.Sprintf(
+			`UPDATE developer_status SET removed_at = ?
+			 WHERE removed_at IS NULL AND developer_id IN (
+			   SELECT id FROM developers WHERE email NOT IN (%s)
+			 )`,
+			placeholders(len(emails)),
+		)
+		if _, err := tx.Exec(q, args...); err != nil {
+			return fmt.Errorf("remove missing devs: %w", err)
+		}
+
+		q = fmt.Sprintf(
 			`UPDATE developers SET removed_at = ?
 			 WHERE removed_at IS NULL AND email NOT IN (%s)`,
 			placeholders(len(emails)),
