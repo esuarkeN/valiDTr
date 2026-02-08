@@ -171,6 +171,9 @@ jobs:
           EOF
           valiDTr sync --config .validtr/config.yml --mode=reconcile
 
+          echo "Expect PASS: old commit stays valid under policy=historical after re-add"
+          valiDTr --policy=historical verify "$COMMIT1"
+
           echo "❌ Expect FAIL: commit during removal stays invalid even after re-add"
           set +e
           valiDTr --policy=historical verify "$COMMIT2"

@@ -3,7 +3,7 @@ package cmd
 import (
 	"os"
 
-	"valiDTr/db"
+	"github.com/esuarkeN/valiDTr/db"
 
 	"github.com/spf13/cobra"
 )
@@ -14,6 +14,12 @@ var (
 	policy    string
 )
 
+var (
+	Version = "dev"
+	Commit  = "none"
+	Date    = "unknown"
+)
+
 func envOrDefault(k, def string) string {
 	if v := os.Getenv(k); v != "" {
 		return v
@@ -21,12 +27,13 @@ func envOrDefault(k, def string) string {
 	return def
 }
 
+func initDB(cmd *cobra.Command, args []string) error {
+	return db.InitDB(dbPath)
+}
+
 var rootCmd = &cobra.Command{
 	Use:   "valiDTr",
 	Short: "Verify Git commits signed with GPG against a time-aware developer/key allowlist",
-	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		return db.InitDB(dbPath)
-	},
 }
 
 func Execute() error {

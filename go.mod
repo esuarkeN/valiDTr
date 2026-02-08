@@ -1,4 +1,4 @@
-module valiDTr
+module github.com/esuarkeN/valiDTr
 
 go 1.23.6
 

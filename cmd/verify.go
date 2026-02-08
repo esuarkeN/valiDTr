@@ -4,16 +4,17 @@ import (
 	"fmt"
 	"time"
 
-	"valiDTr/db"
-	"valiDTr/git"
+	"github.com/esuarkeN/valiDTr/db"
+	"github.com/esuarkeN/valiDTr/git"
 
 	"github.com/spf13/cobra"
 )
 
 var verifyCmd = &cobra.Command{
-	Use:   "verify [commit-hash]",
-	Short: "Verify one commit against signature + developer/key policy",
-	Args:  cobra.ExactArgs(1),
+	Use:     "verify [commit-hash]",
+	Short:   "Verify one commit against signature + developer/key policy",
+	Args:    cobra.ExactArgs(1),
+	PreRunE: initDB,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		commit := args[0]
 

@@ -3,7 +3,7 @@ package cmd
 import (
 	"time"
 
-	"valiDTr/db"
+	"github.com/esuarkeN/valiDTr/db"
 
 	"github.com/spf13/cobra"
 )
@@ -25,9 +25,10 @@ func parseSince(s string) (time.Time, error) {
 }
 
 var keyAddCmd = &cobra.Command{
-	Use:   "add-key [developer-email] [key-id]",
-	Short: "Assign a GPG key to a developer (active starting at --since)",
-	Args:  cobra.ExactArgs(2),
+	Use:     "add-key [developer-email] [key-id]",
+	Short:   "Assign a GPG key to a developer (active starting at --since)",
+	Args:    cobra.ExactArgs(2),
+	PreRunE: initDB,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		email := args[0]
 		keyID := args[1]

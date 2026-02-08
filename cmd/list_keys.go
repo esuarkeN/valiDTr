@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 
-	"valiDTr/db"
+	"github.com/esuarkeN/valiDTr/db"
 
 	"github.com/spf13/cobra"
 )
@@ -11,8 +11,9 @@ import (
 var listKeysEmail string
 
 var listKeysCmd = &cobra.Command{
-	Use:   "list-keys",
-	Short: "List developer key mappings",
+	Use:     "list-keys",
+	Short:   "List developer key mappings",
+	PreRunE: initDB,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		keys, err := db.ListKeys(listKeysEmail)
 		if err != nil {

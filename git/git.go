@@ -33,7 +33,7 @@ func CommitKeyID(commit string) (string, error) {
 	if key == "" {
 		return "", fmt.Errorf("no signing key found (unsigned commit)")
 	}
-	return key, nil
+	return strings.ToUpper(key), nil
 }
 
 func CommitTimestamp(commit string) (time.Time, error) {
@@ -49,9 +49,14 @@ func CommitTimestamp(commit string) (time.Time, error) {
 }
 
 func CommitEmail(commit, mode string) (string, error) {
-	format := "%ce"
-	if mode == "author" {
+	var format string
+	switch mode {
+	case "committer":
+		format = "%ce"
+	case "author":
 		format = "%ae"
+	default:
+		return "", fmt.Errorf("unknown email mode: %s (use committer|author)", mode)
 	}
 	email, err := runGit("show", "-s", "--format="+format, commit)
 	if err != nil {
@@ -60,7 +65,7 @@ func CommitEmail(commit, mode string) (string, error) {
 	if email == "" {
 		return "", fmt.Errorf("could not read %s email", mode)
 	}
-	return email, nil
+	return strings.ToLower(email), nil
 }
 
 func VerifyCommitSignature(commit string) error {

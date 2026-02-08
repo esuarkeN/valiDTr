@@ -48,26 +48,28 @@ func SyncFromYAML(path string, reset bool) error {
 	none := sql.NullTime{Valid: false}
 
 	for _, d := range cfg.Developers {
-		if d.Email == "" {
+		email := normalizeEmail(d.Email)
+		if email == "" {
 			return fmt.Errorf("developer missing email")
 		}
-		if err := UpsertDeveloper(d.Email, d.Name, epoch, none); err != nil {
+		if err := UpsertDeveloper(email, d.Name, epoch, none); err != nil {
 			return err
 		}
-		active, err := HasActiveDeveloperStatus(d.Email)
+		active, err := HasActiveDeveloperStatus(email)
 		if err != nil {
 			return err
 		}
 		if !active {
-			if err := AddDeveloperStatus(d.Email, epoch.Time, none); err != nil {
+			if err := AddDeveloperStatus(email, epoch.Time, none); err != nil {
 				return err
 			}
 		}
 		for _, k := range d.Keys {
-			if k.ID == "" {
-				return fmt.Errorf("developer %s has key with empty id", d.Email)
+			keyID := normalizeKeyID(k.ID)
+			if keyID == "" {
+				return fmt.Errorf("developer %s has key with empty id", email)
 			}
-			if err := InsertDeveloperKey(d.Email, k.ID, epoch, none); err != nil {
+			if err := InsertDeveloperKey(email, keyID, epoch, none); err != nil {
 				return err
 			}
 		}

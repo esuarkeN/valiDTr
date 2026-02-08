@@ -1,5 +1,6 @@
 name: "valiDTr"
 description: "Verify signed commits against a time-aware developer/key allowlist"
+
 inputs:
   config:
     required: true
@@ -9,7 +10,7 @@ inputs:
     default: ".validtr/pubkeys/*.asc"
   policy:
     required: false
-    default: "historical" 
+    default: "historical"
   email_mode:
     required: false
     default: "committer"
@@ -24,21 +25,26 @@ runs:
         sudo apt-get update
         sudo apt-get install -y --no-install-recommends git gnupg jq gcc libc6-dev ca-certificates
 
-    - uses: actions/setup-go@v5
+    - name: Setup Go
+      uses: actions/setup-go@v5
       with:
         go-version: "1.23"
+        cache: true
+        cache-dependency-path: |
+          ${{ github.action_path }}/../../../go.mod
+          ${{ github.action_path }}/../../../go.sum
 
-    - name: Build valiDTr from this action repo
-      shell: bash
-      run: |
-    - name: Build valiDTr from this action repo
+    - name: Build valiDTr (from action repo)
       shell: bash
       run: |
         set -euo pipefail
+
         REPO_ROOT="$(cd "$GITHUB_ACTION_PATH/../../.." && pwd)"
 
-        # don't inherit consumer repo go.work
+        # Don't inherit consumer repo go.work.
         export GOWORK=off
+
+        # github.com/mattn/go-sqlite3 needs CGO.
         export CGO_ENABLED=1
 
         pushd "$REPO_ROOT" >/dev/null
@@ -47,20 +53,24 @@ runs:
 
         echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
 
+    - name: Setup GnuPG home
+      shell: bash
+      run: |
+        set -euo pipefail
+        echo "GNUPGHOME=$RUNNER_TEMP/gnupg" >> "$GITHUB_ENV"
+        mkdir -p "$RUNNER_TEMP/gnupg"
+        chmod 700 "$RUNNER_TEMP/gnupg"
 
     - name: Import allowed public keys
       shell: bash
       run: |
         set -euo pipefail
-        export GNUPGHOME="$RUNNER_TEMP/gnupg"
-        mkdir -p "$GNUPGHOME"
-        chmod 700 "$GNUPGHOME"
         shopt -s nullglob
         for f in ${{ inputs.pubkeys }}; do
           gpg --batch --import "$f" >/dev/null
         done
 
-    - name: Sync allowlist (MUST preserve history)
+    - name: Sync allowlist (preserves history)
       shell: bash
       run: |
         set -euo pipefail
@@ -74,12 +84,9 @@ runs:
         export VALIDTR_DB="$RUNNER_TEMP/validtr.db"
 
         if [ "${GITHUB_EVENT_NAME}" = "pull_request" ]; then
-          git fetch --no-tags --prune --depth=0 origin \
-            "${GITHUB_BASE_REF}:${GITHUB_BASE_REF}" \
-            "${GITHUB_HEAD_REF}:${GITHUB_HEAD_REF}"
-          git checkout --force "${GITHUB_HEAD_REF}"
-          FROM="$(git merge-base "${GITHUB_BASE_REF}" HEAD)"
+          BASE="$(jq -r .pull_request.base.sha "$GITHUB_EVENT_PATH")"
           TO="$(jq -r .pull_request.head.sha "$GITHUB_EVENT_PATH")"
+          FROM="$(git merge-base "$BASE" "$TO")"
         else
           FROM="$(jq -r .before "$GITHUB_EVENT_PATH")"
           TO="${GITHUB_SHA}"

@@ -32,6 +32,11 @@ func ResetAll() error {
 }
 
 func UpsertDeveloper(email, name string, addedAt, removedAt sql.NullTime) error {
+	email = normalizeEmail(email)
+	if email == "" {
+		return fmt.Errorf("developer email is required")
+	}
+
 	db, err := openDB()
 	if err != nil {
 		return err
@@ -53,6 +58,15 @@ ON CONFLICT(email) DO UPDATE SET
 }
 
 func InsertDeveloperKey(email, keyID string, addedAt, revokedAt sql.NullTime) error {
+	email = normalizeEmail(email)
+	if email == "" {
+		return fmt.Errorf("developer email is required")
+	}
+	keyID = normalizeKeyID(keyID)
+	if keyID == "" {
+		return fmt.Errorf("key id is required")
+	}
+
 	d, err := GetDeveloperByEmail(email)
 	if err != nil {
 		return err

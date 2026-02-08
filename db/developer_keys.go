@@ -14,6 +14,15 @@ type DevKey struct {
 }
 
 func AddKeyToDeveloper(email, keyID string, addedAt time.Time) error {
+	email = normalizeEmail(email)
+	if email == "" {
+		return fmt.Errorf("developer email is required")
+	}
+	keyID = normalizeKeyID(keyID)
+	if keyID == "" {
+		return fmt.Errorf("key id is required")
+	}
+
 	d, err := GetDeveloperByEmail(email)
 	if err != nil {
 		return err
@@ -39,6 +48,15 @@ func AddKeyToDeveloper(email, keyID string, addedAt time.Time) error {
 }
 
 func RevokeDeveloperKey(email, keyID string, revokedAt time.Time) error {
+	email = normalizeEmail(email)
+	if email == "" {
+		return fmt.Errorf("developer email is required")
+	}
+	keyID = normalizeKeyID(keyID)
+	if keyID == "" {
+		return fmt.Errorf("key id is required")
+	}
+
 	d, err := GetDeveloperByEmail(email)
 	if err != nil {
 		return err
@@ -56,7 +74,7 @@ func RevokeDeveloperKey(email, keyID string, revokedAt time.Time) error {
 	res, err := db.Exec(
 		`UPDATE developer_keys
          SET revoked_at = ?
-         WHERE developer_id = ? AND key_id = ? AND revoked_at IS NULL`,
+         WHERE developer_id = ? AND upper(key_id) = upper(?) AND revoked_at IS NULL`,
 		revokedAt.UTC(), d.ID, keyID,
 	)
 	if err != nil {
@@ -70,6 +88,8 @@ func RevokeDeveloperKey(email, keyID string, revokedAt time.Time) error {
 }
 
 func IsKeyActiveForDeveloperAt(email, keyID string, t time.Time) (bool, error) {
+	email = normalizeEmail(email)
+	keyID = normalizeKeyID(keyID)
 	d, err := GetDeveloperByEmail(email)
 	if err != nil {
 		return false, err
@@ -84,38 +104,24 @@ func IsKeyActiveForDeveloperAt(email, keyID string, t time.Time) (bool, error) {
 	}
 	defer db.Close()
 
-	var addedAt time.Time
-	var revokedAt sql.NullTime
+	var dummy int
 	err = db.QueryRow(
-		`SELECT added_at, revoked_at
+		`SELECT 1
          FROM developer_keys
-         WHERE developer_id = ? AND key_id = ?
+         WHERE developer_id = ?
+           AND upper(key_id) = upper(?)
+           AND added_at <= ?
+           AND (revoked_at IS NULL OR revoked_at > ?)
          ORDER BY added_at DESC
          LIMIT 1`,
-		d.ID, keyID,
-	).Scan(&addedAt, &revokedAt)
-
+		d.ID, keyID, t.UTC(), t.UTC(),
+	).Scan(&dummy)
 	if err == sql.ErrNoRows {
 		return false, nil
 	}
 	if err != nil {
 		return false, err
 	}
-
-	commitSec := t.UTC().Unix()
-	addedSec := addedAt.UTC().Unix()
-
-	if commitSec < addedSec {
-		return false, nil
-	}
-
-	if revokedAt.Valid {
-		revokedSec := revokedAt.Time.UTC().Unix()
-		if commitSec >= revokedSec {
-			return false, nil
-		}
-	}
-
 	return true, nil
 }
 
@@ -133,8 +139,8 @@ JOIN developers d ON d.id = k.developer_id
 `
 	args := []any{}
 	if emailFilter != "" {
-		q += ` WHERE d.email = ?`
-		args = append(args, emailFilter)
+		q += ` WHERE lower(d.email) = lower(?)`
+		args = append(args, normalizeEmail(emailFilter))
 	}
 	q += ` ORDER BY d.email, k.key_id, k.added_at`
 

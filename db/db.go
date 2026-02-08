@@ -24,7 +24,7 @@ func InitDB(path string) error {
 	schema := `
 CREATE TABLE IF NOT EXISTS developers (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
-  email      TEXT NOT NULL UNIQUE,
+  email      TEXT NOT NULL COLLATE NOCASE UNIQUE,
   name       TEXT,
   added_at   TIMESTAMP NOT NULL,
   removed_at TIMESTAMP
@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS developer_status (
 CREATE TABLE IF NOT EXISTS developer_keys (
   id           INTEGER PRIMARY KEY AUTOINCREMENT,
   developer_id INTEGER NOT NULL,
-  key_id       TEXT NOT NULL,
+  key_id       TEXT NOT NULL COLLATE NOCASE,
   added_at     TIMESTAMP NOT NULL,
   revoked_at   TIMESTAMP,
   FOREIGN KEY(developer_id) REFERENCES developers(id) ON DELETE CASCADE

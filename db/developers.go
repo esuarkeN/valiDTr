@@ -15,6 +15,11 @@ type Developer struct {
 }
 
 func AddDeveloper(email, name string, addedAt time.Time) error {
+	email = normalizeEmail(email)
+	if email == "" {
+		return fmt.Errorf("developer email is required")
+	}
+
 	db, err := openDB()
 	if err != nil {
 		return err
@@ -28,11 +33,10 @@ func AddDeveloper(email, name string, addedAt time.Time) error {
 	defer tx.Rollback()
 
 	var devID int64
-	var removedAt sql.NullTime
 	err = tx.QueryRow(
-		`SELECT id, removed_at FROM developers WHERE email = ?`,
+		`SELECT id FROM developers WHERE lower(email) = lower(?)`,
 		email,
-	).Scan(&devID, &removedAt)
+	).Scan(&devID)
 	if err == sql.ErrNoRows {
 		res, e := tx.Exec(
 			`INSERT INTO developers(email, name, added_at, removed_at) VALUES(?, ?, ?, NULL)`,
@@ -79,6 +83,11 @@ func AddDeveloper(email, name string, addedAt time.Time) error {
 }
 
 func RemoveDeveloper(email string, removedAt time.Time) error {
+	email = normalizeEmail(email)
+	if email == "" {
+		return fmt.Errorf("developer email is required")
+	}
+
 	db, err := openDB()
 	if err != nil {
 		return err
@@ -92,7 +101,7 @@ func RemoveDeveloper(email string, removedAt time.Time) error {
 	defer tx.Rollback()
 
 	var devID int64
-	err = tx.QueryRow(`SELECT id FROM developers WHERE email = ?`, email).Scan(&devID)
+	err = tx.QueryRow(`SELECT id FROM developers WHERE lower(email) = lower(?)`, email).Scan(&devID)
 	if err == sql.ErrNoRows {
 		return fmt.Errorf("developer not found: %s", email)
 	}
@@ -125,6 +134,11 @@ func RemoveDeveloper(email string, removedAt time.Time) error {
 }
 
 func GetDeveloperByEmail(email string) (*Developer, error) {
+	email = normalizeEmail(email)
+	if email == "" {
+		return nil, nil
+	}
+
 	db, err := openDB()
 	if err != nil {
 		return nil, err
@@ -133,7 +147,7 @@ func GetDeveloperByEmail(email string) (*Developer, error) {
 
 	var d Developer
 	err = db.QueryRow(
-		`SELECT id, email, name, added_at, removed_at FROM developers WHERE email = ?`,
+		`SELECT id, email, name, added_at, removed_at FROM developers WHERE lower(email) = lower(?)`,
 		email,
 	).Scan(&d.ID, &d.Email, &d.Name, &d.AddedAt, &d.RemovedAt)
 
@@ -147,6 +161,7 @@ func GetDeveloperByEmail(email string) (*Developer, error) {
 }
 
 func IsDeveloperActiveAt(email string, t time.Time) (bool, error) {
+	email = normalizeEmail(email)
 	d, err := GetDeveloperByEmail(email)
 	if err != nil {
 		return false, err
@@ -220,6 +235,7 @@ ORDER BY d.email`)
 }
 
 func AddDeveloperStatus(email string, addedAt time.Time, removedAt sql.NullTime) error {
+	email = normalizeEmail(email)
 	d, err := GetDeveloperByEmail(email)
 	if err != nil {
 		return err
@@ -245,6 +261,7 @@ func AddDeveloperStatus(email string, addedAt time.Time, removedAt sql.NullTime)
 }
 
 func HasActiveDeveloperStatus(email string) (bool, error) {
+	email = normalizeEmail(email)
 	d, err := GetDeveloperByEmail(email)
 	if err != nil {
 		return false, err

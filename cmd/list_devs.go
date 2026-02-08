@@ -3,14 +3,15 @@ package cmd
 import (
 	"fmt"
 
-	"valiDTr/db"
+	"github.com/esuarkeN/valiDTr/db"
 
 	"github.com/spf13/cobra"
 )
 
 var listDevsCmd = &cobra.Command{
-	Use:   "list-devs",
-	Short: "List developers",
+	Use:     "list-devs",
+	Short:   "List developers",
+	PreRunE: initDB,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		devs, err := db.ListDevelopers()
 		if err != nil {

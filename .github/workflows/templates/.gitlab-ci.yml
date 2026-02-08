@@ -7,9 +7,9 @@ validtr:
         GIT_DEPTH: "0"
     before_script:
         - apt-get update
-        - apt-get install -y --no-install-recommends git gnupg ca-certificates
+        - apt-get install -y --no-install-recommends git gnupg gcc libc6-dev ca-certificates
     script:
-        - go install github.com/esuarken/valiDTr@latest
+        - go install github.com/esuarkeN/valiDTr@latest
 
         # Import allowed public keys so git signature verification can succeed
         - export GNUPGHOME="$CI_PROJECT_DIR/.gnupg"
@@ -22,7 +22,7 @@ validtr:
 
         # Build allowlist DB from YAML (pipeline-friendly)
         - export VALIDTR_DB="$CI_PROJECT_DIR/.validtr.db"
-        - valiDTr sync --config .validtr/config.yml --reset
+        - valiDTr sync --config .validtr/config.yml --mode=reconcile
 
         # Choose a good range:
         # - MR pipelines may not have CI_COMMIT_BEFORE_SHA; prefer MR base/source SHAs if present

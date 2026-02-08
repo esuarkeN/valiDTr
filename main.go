@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"valiDTr/cmd"
+	"github.com/esuarkeN/valiDTr/cmd"
 )
 
 func main() {

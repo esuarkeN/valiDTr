@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 
-	"valiDTr/db"
+	"github.com/esuarkeN/valiDTr/db"
 
 	"github.com/spf13/cobra"
 )
@@ -13,8 +13,9 @@ var syncReset bool
 var syncMode string // "reset" | "reconcile"
 
 var syncCmd = &cobra.Command{
-	Use:   "sync",
-	Short: "Sync DB from YAML config (reset or reconcile)",
+	Use:     "sync",
+	Short:   "Sync DB from YAML config (reset or reconcile)",
+	PreRunE: initDB,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if syncConfigPath == "" {
 			return fmt.Errorf("--config is required")
