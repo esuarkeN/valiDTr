@@ -27,14 +27,33 @@ validtr:
               echo "Using allowlist from target branch commit: $CI_MERGE_REQUEST_TARGET_BRANCH_SHA"
             fi
 
+        # Bootstrap guard:
+        # If this MR introduces .validtr for the first time, skip enforcement
+        # against the target branch (which has no allowlist yet).
+        - |
+            set -euo pipefail
+            if [ -n "${CI_MERGE_REQUEST_TARGET_BRANCH_SHA:-}" ] \
+              && [ ! -f "$VALIDTR_ALLOWLIST_ROOT/.validtr/config.yml" ] \
+              && ! compgen -G "$VALIDTR_ALLOWLIST_ROOT/.validtr/pubkeys/*.asc" >/dev/null; then
+              echo "Skipping valiDTr MR check because target branch has no .validtr allowlist yet. Merge bootstrap allowlist first; then MR checks will enforce signatures."
+              exit 0
+            fi
+
         # Import allowed public keys so git signature verification can succeed
         - export GNUPGHOME="$CI_PROJECT_DIR/.gnupg"
         - mkdir -p "$GNUPGHOME" && chmod 700 "$GNUPGHOME"
         - |
+            set -euo pipefail
             shopt -s nullglob
+            matched=0
             for f in "$VALIDTR_ALLOWLIST_ROOT"/.validtr/pubkeys/*.asc; do
               gpg --batch --import "$f"
+              matched=1
             done
+            if [ "$matched" -eq 0 ]; then
+              echo "no public keys matched trusted glob: .validtr/pubkeys/*.asc" >&2
+              exit 1
+            fi
 
         # Build allowlist DB from YAML (pipeline-friendly)
         - export VALIDTR_DB="$CI_PROJECT_DIR/.validtr.db"
