@@ -16,7 +16,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: esuarkeN/valiDTr/.github/actions/validtr@v1
+      - uses: ./.github/actions/validtr
         with:
           config: .validtr/config.yml
           pubkeys: .validtr/pubkeys/*.asc

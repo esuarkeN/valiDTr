@@ -39,7 +39,8 @@ runs:
       run: |
         set -euo pipefail
 
-        REPO_ROOT="$(cd "$GITHUB_ACTION_PATH/../../.." && pwd)"
+        ACTION_REPO="${{ github.action_repository }}"
+        ACTION_REF="${{ github.action_ref }}"
 
         # Don't inherit consumer repo go.work.
         export GOWORK=off
@@ -47,9 +48,25 @@ runs:
         # github.com/mattn/go-sqlite3 needs CGO.
         export CGO_ENABLED=1
 
-        pushd "$REPO_ROOT" >/dev/null
-        go build -o "$RUNNER_TEMP/valiDTr" .
-        popd >/dev/null
+        # Locate go.mod by walking up from the action path. Depending on how
+        # GitHub lays out downloaded actions, fixed ../ depth can be brittle.
+        REPO_ROOT="$GITHUB_ACTION_PATH"
+        while [ "$REPO_ROOT" != "/" ] && [ ! -f "$REPO_ROOT/go.mod" ]; do
+          REPO_ROOT="$(dirname "$REPO_ROOT")"
+        done
+
+        if [ -f "$REPO_ROOT/go.mod" ]; then
+          pushd "$REPO_ROOT" >/dev/null
+          go build -o "$RUNNER_TEMP/valiDTr" .
+          popd >/dev/null
+        else
+          if [ -z "$ACTION_REPO" ] || [ -z "$ACTION_REF" ]; then
+            echo "could not locate go.mod near GITHUB_ACTION_PATH and action repository/ref are unavailable" >&2
+            exit 1
+          fi
+          export GOBIN="$RUNNER_TEMP"
+          go install "github.com/$ACTION_REPO@$ACTION_REF"
+        fi
 
         echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
 
