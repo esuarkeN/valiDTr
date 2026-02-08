@@ -82,10 +82,13 @@ jobs:
 
 - **policy**
   - `current`: evaluate the allowlist *now* (strict enforcement)
-  - `historical`: evaluate the allowlist at commit time (preserves older commits)
+  - `historical`: evaluate the allowlist at commit time (preserves older commits for audits; commit timestamps are forgeable)
 - **email_mode**
   - `committer` (default): checks committer email
   - `author`: checks author email
+
+Security note:
+- In the GitHub Action, PR/push admission checks always use `current` (even if `historical` is requested) to avoid commit-date backdating bypasses.
 
 You can also control these via env vars: `VALIDTR_POLICY`, `VALIDTR_EMAIL_MODE`.
 
@@ -101,6 +104,7 @@ Internally, valiDTr keeps a **SQLite database** of developers/keys with timestam
 ## 🔒 Workflow safety (no secret leakage)
 
 - The workflow only uses `.validtr/config.yml` and `.validtr/pubkeys/*.asc` (public keys).
+- For `pull_request` events, the action reads allowlist files from the PR **base commit**, not from PR-modified files.
 - No private keys or secrets are required.
 - The GitHub Action uses a temporary DB + `GNUPGHOME` on the runner and does not upload artifacts by default.
 
