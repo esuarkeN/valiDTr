@@ -1,0 +1,6 @@
+# import config
+packagefile internal/abi=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b005\_pkg_.a
+packagefile internal/goarch=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b006\_pkg_.a
+packagefile math/rand/v2=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b063\_pkg_.a
+packagefile sync=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b034\_pkg_.a
+packagefile sync/atomic=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b035\_pkg_.a

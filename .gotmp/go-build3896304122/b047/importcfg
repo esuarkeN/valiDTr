@@ -1,0 +1,6 @@
+# import config
+packagefile errors=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b003\_pkg_.a
+packagefile internal/syscall/windows/sysdll=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b048\_pkg_.a
+packagefile runtime=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b009\_pkg_.a
+packagefile syscall=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b049\_pkg_.a
+packagefile unicode/utf16=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b052\_pkg_.a

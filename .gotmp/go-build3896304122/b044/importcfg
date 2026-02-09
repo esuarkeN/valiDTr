@@ -1,0 +1,9 @@
+# import config
+packagefile errors=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b003\_pkg_.a
+packagefile internal/bytealg=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b010\_pkg_.a
+packagefile internal/godebug=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b045\_pkg_.a
+packagefile internal/stringslite=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b021\_pkg_.a
+packagefile internal/syscall/windows/registry=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b047\_pkg_.a
+packagefile runtime=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b009\_pkg_.a
+packagefile sync=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b034\_pkg_.a
+packagefile syscall=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b049\_pkg_.a

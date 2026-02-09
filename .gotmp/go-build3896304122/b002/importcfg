@@ -1,0 +1,11 @@
+# import config
+packagefile errors=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b003\_pkg_.a
+packagefile internal/fmtsort=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b024\_pkg_.a
+packagefile io=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b038\_pkg_.a
+packagefile math=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b030\_pkg_.a
+packagefile os=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b039\_pkg_.a
+packagefile reflect=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b026\_pkg_.a
+packagefile slices=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b037\_pkg_.a
+packagefile strconv=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b032\_pkg_.a
+packagefile sync=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b034\_pkg_.a
+packagefile unicode/utf8=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b033\_pkg_.a

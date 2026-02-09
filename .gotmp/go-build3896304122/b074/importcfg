@@ -1,0 +1,8 @@
+# import config
+packagefile crypto=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b066\_pkg_.a
+packagefile crypto/internal/boring=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b068\_pkg_.a
+packagefile errors=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b003\_pkg_.a
+packagefile hash=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b067\_pkg_.a
+packagefile internal/byteorder=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b013\_pkg_.a
+packagefile internal/cpu=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b011\_pkg_.a
+packagefile math/bits=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b031\_pkg_.a

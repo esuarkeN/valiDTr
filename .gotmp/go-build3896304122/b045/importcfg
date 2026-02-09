@@ -1,0 +1,5 @@
+# import config
+packagefile internal/bisect=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b046\_pkg_.a
+packagefile internal/godebugs=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b015\_pkg_.a
+packagefile sync=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b034\_pkg_.a
+packagefile sync/atomic=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b035\_pkg_.a

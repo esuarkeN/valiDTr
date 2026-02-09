@@ -1,0 +1,11 @@
+./dev_add.go
+./dev_remove.go
+./key_add.go
+./key_revoke.go
+./list_devs.go
+./list_keys.go
+./root.go
+./sync.go
+./verify.go
+./verify_range.go
+./version.go

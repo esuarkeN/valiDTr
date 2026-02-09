@@ -1,0 +1,5 @@
+# import config
+packagefile crypto=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b066\_pkg_.a
+packagefile crypto/cipher=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b069\_pkg_.a
+packagefile crypto/internal/boring/sig=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b072\_pkg_.a
+packagefile hash=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b067\_pkg_.a

@@ -1,0 +1,17 @@
+# import config
+packagefile bytes=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b060\_pkg_.a
+packagefile encoding=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b079\_pkg_.a
+packagefile encoding/base64=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b080\_pkg_.a
+packagefile errors=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b003\_pkg_.a
+packagefile fmt=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b002\_pkg_.a
+packagefile io=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b038\_pkg_.a
+packagefile math=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b030\_pkg_.a
+packagefile reflect=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b026\_pkg_.a
+packagefile regexp=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b082\_pkg_.a
+packagefile sort=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b084\_pkg_.a
+packagefile strconv=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b032\_pkg_.a
+packagefile strings=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b076\_pkg_.a
+packagefile sync=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b034\_pkg_.a
+packagefile time=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b044\_pkg_.a
+packagefile unicode=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b036\_pkg_.a
+packagefile unicode/utf8=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b033\_pkg_.a

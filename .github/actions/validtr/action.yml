@@ -14,6 +14,9 @@ inputs:
   email_mode:
     required: false
     default: "committer"
+  allow_unsafe_historical:
+    required: false
+    default: "false"
 
 runs:
   using: "composite"
@@ -104,8 +107,12 @@ runs:
 
         EFFECTIVE_POLICY="${{ inputs.policy }}"
         if [ "$EFFECTIVE_POLICY" = "historical" ] && { [ "${GITHUB_EVENT_NAME}" = "pull_request" ] || [ "${GITHUB_EVENT_NAME}" = "push" ]; }; then
-          echo "::warning::policy=historical relies on forgeable commit timestamps and is unsafe for admission checks; forcing policy=current."
-          EFFECTIVE_POLICY="current"
+          if [ "${{ inputs.allow_unsafe_historical }}" = "true" ]; then
+            echo "::warning::Running policy=historical on PR/push. Use this for non-blocking audit only; commit timestamps are forgeable."
+          else
+            echo "::warning::policy=historical relies on forgeable commit timestamps and is unsafe for admission checks; forcing policy=current."
+            EFFECTIVE_POLICY="current"
+          fi
         fi
 
         echo "VALIDTR_ALLOWLIST_ROOT=$ALLOWLIST_ROOT" >> "$GITHUB_ENV"
