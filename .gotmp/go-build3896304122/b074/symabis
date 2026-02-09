@@ -1,3 +1,0 @@
-def crypto/sha512.blockAMD64 ABI0
-def crypto/sha512.blockAVX2 ABI0
-ref crypto/sha512._K ABI0

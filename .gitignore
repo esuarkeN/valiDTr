@@ -12,3 +12,8 @@
 # Local environment
 .env
 
+# Local Go build/cache artifacts
+.gocache/
+.gotmp/
+.gotelemetry/
+

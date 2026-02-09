@@ -1,7 +1,0 @@
-# import config
-packagefile bytes=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b060\_pkg_.a
-packagefile fmt=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b002\_pkg_.a
-packagefile os/exec=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b086\_pkg_.a
-packagefile strconv=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b032\_pkg_.a
-packagefile strings=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b076\_pkg_.a
-packagefile time=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b044\_pkg_.a

@@ -1,9 +1,0 @@
-# import config
-packagefile fmt=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b002\_pkg_.a
-packagefile github.com/esuarkeN/valiDTr/db=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b058\_pkg_.a
-packagefile github.com/esuarkeN/valiDTr/git=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b085\_pkg_.a
-packagefile github.com/spf13/cobra=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b088\_pkg_.a
-packagefile os=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b039\_pkg_.a
-packagefile runtime=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b009\_pkg_.a
-packagefile strings=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b076\_pkg_.a
-packagefile time=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b044\_pkg_.a

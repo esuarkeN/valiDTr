@@ -1,6 +1,0 @@
-# import config
-packagefile errors=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b003\_pkg_.a
-packagefile internal/byteorder=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b013\_pkg_.a
-packagefile internal/chacha8rand=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b012\_pkg_.a
-packagefile math=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b030\_pkg_.a
-packagefile math/bits=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b031\_pkg_.a

@@ -1,3 +1,0 @@
-def crypto/sha256.block ABI0
-ref crypto/sha256.useSHA ABI0
-ref crypto/sha256.useAVX2 ABI0

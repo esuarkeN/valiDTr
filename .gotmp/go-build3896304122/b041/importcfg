@@ -1,9 +1,0 @@
-# import config
-packagefile errors=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b003\_pkg_.a
-packagefile internal/bytealg=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b010\_pkg_.a
-packagefile internal/oserror=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b042\_pkg_.a
-packagefile io=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b038\_pkg_.a
-packagefile path=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b043\_pkg_.a
-packagefile slices=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b037\_pkg_.a
-packagefile time=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b044\_pkg_.a
-packagefile unicode/utf8=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b033\_pkg_.a

@@ -1,7 +1,0 @@
-# import config
-packagefile bytes=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b060\_pkg_.a
-packagefile crypto/internal/alias=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b070\_pkg_.a
-packagefile crypto/subtle=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b071\_pkg_.a
-packagefile errors=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b003\_pkg_.a
-packagefile internal/byteorder=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b013\_pkg_.a
-packagefile io=C:\Neuer Ordner\ValiDTr\.gotmp\go-build3896304122\b038\_pkg_.a
