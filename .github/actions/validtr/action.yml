@@ -1,0 +1,190 @@
+name: "valiDTr"
+description: "Verify signed commits against a time-aware developer/key allowlist"
+
+inputs:
+  config:
+    required: true
+    default: ".validtr/config.yml"
+  pubkeys:
+    required: true
+    default: ".validtr/pubkeys/*.asc"
+  policy:
+    required: false
+    default: "current"
+  email_mode:
+    required: false
+    default: "committer"
+  allow_unsafe_historical:
+    required: false
+    default: "false"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Install required tools
+      shell: bash
+      run: |
+        set -euo pipefail
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends git gnupg jq gcc libc6-dev ca-certificates
+
+    - name: Setup Go
+      uses: actions/setup-go@v6.2.0
+      with:
+        go-version: "1.23"
+        cache: true
+        cache-dependency-path: |
+          ${{ github.action_path }}/../../../go.mod
+          ${{ github.action_path }}/../../../go.sum
+
+    - name: Build valiDTr (from action repo)
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        ACTION_REPO="${{ github.action_repository }}"
+        ACTION_REF="${{ github.action_ref }}"
+
+        # Don't inherit consumer repo go.work.
+        export GOWORK=off
+
+        # github.com/mattn/go-sqlite3 needs CGO.
+        export CGO_ENABLED=1
+
+        # Locate go.mod by walking up from the action path. Depending on how
+        # GitHub lays out downloaded actions, fixed ../ depth can be brittle.
+        REPO_ROOT="$GITHUB_ACTION_PATH"
+        while [ "$REPO_ROOT" != "/" ] && [ ! -f "$REPO_ROOT/go.mod" ]; do
+          REPO_ROOT="$(dirname "$REPO_ROOT")"
+        done
+
+        if [ -f "$REPO_ROOT/go.mod" ]; then
+          pushd "$REPO_ROOT" >/dev/null
+          go build -o "$RUNNER_TEMP/valiDTr" .
+          popd >/dev/null
+        else
+          if [ -z "$ACTION_REPO" ] || [ -z "$ACTION_REF" ]; then
+            echo "could not locate go.mod near GITHUB_ACTION_PATH and action repository/ref are unavailable" >&2
+            exit 1
+          fi
+          export GOBIN="$RUNNER_TEMP"
+          go install "github.com/$ACTION_REPO@$ACTION_REF"
+        fi
+
+        echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+
+    - name: Setup GnuPG home
+      shell: bash
+      run: |
+        set -euo pipefail
+        echo "GNUPGHOME=$RUNNER_TEMP/gnupg" >> "$GITHUB_ENV"
+        mkdir -p "$RUNNER_TEMP/gnupg"
+        chmod 700 "$RUNNER_TEMP/gnupg"
+
+    - name: Resolve trusted allowlist source + effective policy
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        ALLOWLIST_ROOT="$GITHUB_WORKSPACE"
+        if [ "${GITHUB_EVENT_NAME}" = "pull_request" ]; then
+          BASE_SHA="$(jq -r '.pull_request.base.sha // empty' "$GITHUB_EVENT_PATH")"
+          if [ -z "$BASE_SHA" ]; then
+            echo "missing pull_request.base.sha in event payload" >&2
+            exit 1
+          fi
+
+          if ! git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null; then
+            git fetch --no-tags --depth=1 origin "$BASE_SHA"
+          fi
+
+          ALLOWLIST_ROOT="$RUNNER_TEMP/validtr-base"
+          rm -rf "$ALLOWLIST_ROOT"
+          mkdir -p "$ALLOWLIST_ROOT"
+          git archive "$BASE_SHA" | tar -x -C "$ALLOWLIST_ROOT"
+          echo "Using allowlist from base commit: $BASE_SHA"
+        fi
+
+        EFFECTIVE_POLICY="${{ inputs.policy }}"
+        if [ "$EFFECTIVE_POLICY" = "historical" ] && { [ "${GITHUB_EVENT_NAME}" = "pull_request" ] || [ "${GITHUB_EVENT_NAME}" = "push" ]; }; then
+          if [ "${{ inputs.allow_unsafe_historical }}" = "true" ]; then
+            echo "::warning::Running policy=historical on PR/push. Use this for non-blocking audit only; commit timestamps are forgeable."
+          else
+            echo "::warning::policy=historical relies on forgeable commit timestamps and is unsafe for admission checks; forcing policy=current."
+            EFFECTIVE_POLICY="current"
+          fi
+        fi
+
+        echo "VALIDTR_ALLOWLIST_ROOT=$ALLOWLIST_ROOT" >> "$GITHUB_ENV"
+        echo "VALIDTR_EFFECTIVE_POLICY=$EFFECTIVE_POLICY" >> "$GITHUB_ENV"
+
+    - name: Import allowed public keys
+      shell: bash
+      run: |
+        set -euo pipefail
+        PUBKEY_GLOB="${{ inputs.pubkeys }}"
+        if [[ "$PUBKEY_GLOB" = /* ]]; then
+          echo "pubkeys input must be a repository-relative glob, got absolute path: $PUBKEY_GLOB" >&2
+          exit 1
+        fi
+
+        ALLOWLIST_ABS="$(realpath -m "$VALIDTR_ALLOWLIST_ROOT")"
+        MATCHED=0
+        shopt -s nullglob
+        pushd "$VALIDTR_ALLOWLIST_ROOT" >/dev/null
+        for f in $PUBKEY_GLOB; do
+          PUBKEY_ABS="$(realpath -m "$PWD/$f")"
+          if [[ "$PUBKEY_ABS" != "$ALLOWLIST_ABS/"* ]]; then
+            echo "pubkeys path escapes repository root: $f" >&2
+            exit 1
+          fi
+          gpg --batch --import "$PUBKEY_ABS" >/dev/null
+          MATCHED=1
+        done
+        popd >/dev/null
+        if [ "$MATCHED" -eq 0 ]; then
+          echo "no public keys matched trusted glob: $PUBKEY_GLOB" >&2
+          exit 1
+        fi
+
+    - name: Sync allowlist (preserves history)
+      shell: bash
+      run: |
+        set -euo pipefail
+        CONFIG_PATH="${{ inputs.config }}"
+        if [[ "$CONFIG_PATH" = /* ]]; then
+          echo "config input must be repository-relative, got absolute path: $CONFIG_PATH" >&2
+          exit 1
+        fi
+
+        CONFIG_ABS="$(realpath -m "$VALIDTR_ALLOWLIST_ROOT/$CONFIG_PATH")"
+        ALLOWLIST_ABS="$(realpath -m "$VALIDTR_ALLOWLIST_ROOT")"
+        if [[ "$CONFIG_ABS" != "$ALLOWLIST_ABS/"* ]]; then
+          echo "config path escapes repository root: $CONFIG_PATH" >&2
+          exit 1
+        fi
+        if [ ! -f "$CONFIG_ABS" ]; then
+          echo "config file not found at trusted source: $CONFIG_PATH" >&2
+          exit 1
+        fi
+
+        export VALIDTR_DB="$RUNNER_TEMP/validtr.db"
+        valiDTr sync --config "$CONFIG_ABS" --mode=reconcile
+
+    - name: Verify range
+      shell: bash
+      run: |
+        set -euo pipefail
+        export VALIDTR_DB="$RUNNER_TEMP/validtr.db"
+
+        if [ "${GITHUB_EVENT_NAME}" = "pull_request" ]; then
+          BASE="$(jq -r .pull_request.base.sha "$GITHUB_EVENT_PATH")"
+          TO="$(jq -r .pull_request.head.sha "$GITHUB_EVENT_PATH")"
+          FROM="$(git merge-base "$BASE" "$TO")"
+        else
+          FROM="$(jq -r .before "$GITHUB_EVENT_PATH")"
+          TO="${GITHUB_SHA}"
+        fi
+
+        echo "Range: $FROM..$TO"
+        valiDTr --policy="$VALIDTR_EFFECTIVE_POLICY" --email-mode="${{ inputs.email_mode }}" verify-range "$FROM" "$TO"

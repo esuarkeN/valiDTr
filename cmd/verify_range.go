@@ -1,0 +1,50 @@
+package cmd
+
+import (
+	"strings"
+
+	"github.com/esuarkeN/valiDTr/git"
+
+	"github.com/spf13/cobra"
+)
+
+var verifyRangeCmd = &cobra.Command{
+	Use:     "verify-range [from] [to]",
+	Short:   "Verify all commits in a range (from..to), failing on the first rejection",
+	Args:    cobra.ExactArgs(2),
+	PreRunE: initDB,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		from := args[0]
+		to := args[1]
+
+		includeRoot := false
+		if strings.Trim(from, "0") == "" {
+			root, err := git.RootCommit(to)
+			if err != nil {
+				return err
+			}
+			from = root
+			includeRoot = true
+		}
+
+		commits, err := git.CommitsInRange(from, to)
+		if err != nil {
+			return err
+		}
+		if includeRoot {
+			commits = append([]string{from}, commits...)
+		}
+
+		for _, c := range commits {
+			if err := verifyCmd.RunE(cmd, []string{c}); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	},
+}
+
+func init() {
+	rootCmd.AddCommand(verifyRangeCmd)
+}

@@ -1,0 +1,19 @@
+# Binaries
+/valiDTr
+/valiDTr.exe
+*.exe
+
+# Databases
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# Local environment
+.env
+
+# Local Go build/cache artifacts
+.gocache/
+.gotmp/
+.gotelemetry/
+

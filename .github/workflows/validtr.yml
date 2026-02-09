@@ -1,0 +1,109 @@
+name: valiDTr
+
+on:
+  pull_request:
+  push:
+    branches: [ "main" ]
+
+permissions:
+  contents: read
+
+jobs:
+  validtr:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6.0.2
+        with:
+          fetch-depth: 0
+
+      - id: allowlist_guard
+        name: Check allowlist bootstrap state
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          should_run=true
+          if [ "${GITHUB_EVENT_NAME}" = "pull_request" ]; then
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+            has_config=0
+            has_pubkeys=0
+
+            if git cat-file -e "${BASE_SHA}:.validtr/config.yml" 2>/dev/null; then
+              has_config=1
+            fi
+
+            if git ls-tree -r --name-only "$BASE_SHA" -- .validtr/pubkeys | grep -Eq '\.asc$'; then
+              has_pubkeys=1
+            fi
+
+            if [ "$has_config" -eq 0 ] && [ "$has_pubkeys" -eq 0 ]; then
+              should_run=false
+              echo "::warning::Skipping valiDTr PR check because the base branch has no .validtr allowlist yet. Merge bootstrap allowlist first; then PR checks will enforce signatures."
+            fi
+          fi
+
+          echo "should_run=$should_run" >> "$GITHUB_OUTPUT"
+
+      - if: steps.allowlist_guard.outputs.should_run == 'true'
+        uses: ./.github/actions/validtr
+        with:
+          config: .validtr/config.yml
+          pubkeys: .validtr/pubkeys/*.asc
+          policy: current
+          email_mode: committer
+
+  validtr-historical-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6.0.2
+        with:
+          fetch-depth: 0
+
+      - id: allowlist_guard
+        name: Check allowlist bootstrap state
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          should_run=true
+          if [ "${GITHUB_EVENT_NAME}" = "pull_request" ]; then
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+            has_config=0
+            has_pubkeys=0
+
+            if git cat-file -e "${BASE_SHA}:.validtr/config.yml" 2>/dev/null; then
+              has_config=1
+            fi
+
+            if git ls-tree -r --name-only "$BASE_SHA" -- .validtr/pubkeys | grep -Eq '\.asc$'; then
+              has_pubkeys=1
+            fi
+
+            if [ "$has_config" -eq 0 ] && [ "$has_pubkeys" -eq 0 ]; then
+              should_run=false
+              echo "::warning::Skipping valiDTr historical audit because the base branch has no .validtr allowlist yet."
+            fi
+          fi
+
+          echo "should_run=$should_run" >> "$GITHUB_OUTPUT"
+
+      - id: historical_check
+        if: steps.allowlist_guard.outputs.should_run == 'true'
+        continue-on-error: true
+        uses: ./.github/actions/validtr
+        with:
+          config: .validtr/config.yml
+          pubkeys: .validtr/pubkeys/*.asc
+          policy: historical
+          email_mode: committer
+          allow_unsafe_historical: "true"
+
+      - name: Historical audit result (non-blocking)
+        if: always() && steps.allowlist_guard.outputs.should_run == 'true'
+        shell: bash
+        run: |
+          if [ "${{ steps.historical_check.outcome }}" = "success" ]; then
+            echo "Historical audit passed under policy=historical."
+          else
+            echo "::warning::Historical audit failed under policy=historical (non-blocking)."
+          fi

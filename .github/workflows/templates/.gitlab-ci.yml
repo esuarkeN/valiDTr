@@ -1,0 +1,76 @@
+stages: [verify]
+
+validtr:
+    stage: verify
+    image: golang:1.23
+    variables:
+        GIT_DEPTH: "0"
+    before_script:
+        - apt-get update
+        - apt-get install -y --no-install-recommends git gnupg gcc libc6-dev ca-certificates
+    script:
+        - go install github.com/esuarkeN/valiDTr@latest
+
+        # For merge requests, read allowlist material from the target branch commit,
+        # not from MR-modified files.
+        - export VALIDTR_ALLOWLIST_ROOT="$CI_PROJECT_DIR"
+        - |
+            set -euo pipefail
+            if [ -n "${CI_MERGE_REQUEST_TARGET_BRANCH_SHA:-}" ]; then
+              if ! git cat-file -e "${CI_MERGE_REQUEST_TARGET_BRANCH_SHA}^{commit}" 2>/dev/null; then
+                git fetch --no-tags origin "${CI_MERGE_REQUEST_TARGET_BRANCH_SHA}"
+              fi
+              export VALIDTR_ALLOWLIST_ROOT="$CI_PROJECT_DIR/.validtr-base"
+              rm -rf "$VALIDTR_ALLOWLIST_ROOT"
+              mkdir -p "$VALIDTR_ALLOWLIST_ROOT"
+              git archive "$CI_MERGE_REQUEST_TARGET_BRANCH_SHA" | tar -x -C "$VALIDTR_ALLOWLIST_ROOT"
+              echo "Using allowlist from target branch commit: $CI_MERGE_REQUEST_TARGET_BRANCH_SHA"
+            fi
+
+        # Bootstrap guard:
+        # If this MR introduces .validtr for the first time, skip enforcement
+        # against the target branch (which has no allowlist yet).
+        - |
+            set -euo pipefail
+            if [ -n "${CI_MERGE_REQUEST_TARGET_BRANCH_SHA:-}" ] \
+              && [ ! -f "$VALIDTR_ALLOWLIST_ROOT/.validtr/config.yml" ] \
+              && ! compgen -G "$VALIDTR_ALLOWLIST_ROOT/.validtr/pubkeys/*.asc" >/dev/null; then
+              echo "Skipping valiDTr MR check because target branch has no .validtr allowlist yet. Merge bootstrap allowlist first; then MR checks will enforce signatures."
+              exit 0
+            fi
+
+        # Import allowed public keys so git signature verification can succeed
+        - export GNUPGHOME="$CI_PROJECT_DIR/.gnupg"
+        - mkdir -p "$GNUPGHOME" && chmod 700 "$GNUPGHOME"
+        - |
+            set -euo pipefail
+            shopt -s nullglob
+            matched=0
+            for f in "$VALIDTR_ALLOWLIST_ROOT"/.validtr/pubkeys/*.asc; do
+              gpg --batch --import "$f"
+              matched=1
+            done
+            if [ "$matched" -eq 0 ]; then
+              echo "no public keys matched trusted glob: .validtr/pubkeys/*.asc" >&2
+              exit 1
+            fi
+
+        # Build allowlist DB from YAML (pipeline-friendly)
+        - export VALIDTR_DB="$CI_PROJECT_DIR/.validtr.db"
+        - valiDTr sync --config "$VALIDTR_ALLOWLIST_ROOT/.validtr/config.yml" --mode=reconcile
+
+        # Choose a good range:
+        # - MR pipelines may not have CI_COMMIT_BEFORE_SHA; prefer MR base/source SHAs if present
+        - |
+            set -euo pipefail
+
+            if [ -n "${CI_MERGE_REQUEST_DIFF_BASE_SHA:-}" ] && [ -n "${CI_MERGE_REQUEST_SOURCE_BRANCH_SHA:-}" ]; then
+              FROM="$CI_MERGE_REQUEST_DIFF_BASE_SHA"
+              TO="$CI_MERGE_REQUEST_SOURCE_BRANCH_SHA"
+            else
+              FROM="${CI_COMMIT_BEFORE_SHA:-}"
+              TO="${CI_COMMIT_SHA:-}"
+            fi
+
+            echo "Range: $FROM..$TO"
+            valiDTr --policy=current verify-range "$FROM" "$TO"
